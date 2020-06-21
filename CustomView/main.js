@@ -123,7 +123,7 @@ $(document).ready(function () {
 
     function update() {
         //Clear
-        $('#board').children().empty(".fas")
+        $('.refresh').remove()
         var turn = $("#slider").slider("value")
         $('#turn-display').text(turn.toString())
 
@@ -163,9 +163,9 @@ $(document).ready(function () {
 
             for (var ship in ships) {
                 if (ships[ship][1] == 0) {
-                    $('#board').children().eq(ships[ship][0]).append('<i class="fas fa-fighter-jet" style="color:' + color + ';"></i>')
+                    $('#board').children().eq(ships[ship][0]).append('<i class="fas fa-fighter-jet refresh" style="color:' + color + ';"></i>')
                 } else {
-                    $('#board').children().eq(ships[ship][0]).append('<i class="fas fa-tractor" style="color:' + color + ';"></i>')
+                    $('#board').children().eq(ships[ship][0]).append('<i class="fas fa-tractor refresh" style="color:' + color + ';"></i>')
                 }
             }
             for (var yard in shipyards) {
