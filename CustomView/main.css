@@ -1,0 +1,27 @@
+body {
+    padding: 20px;
+}
+
+#board {
+    border: red;
+    display: grid;
+    justify-content: center;
+}
+
+.square {
+    background-color: black;
+    border: 1px solid purple;
+    display: table-cell;
+    vertical-align: middle
+}
+
+.square i {
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    padding: 2px;
+}
+
+html, body {
+    height: 100%;
+}
