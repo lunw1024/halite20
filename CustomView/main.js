@@ -162,11 +162,20 @@ $(document).ready(function () {
             $('#haliteTotal'+team).text(halite)
 
             for (var ship in ships) {
+                var current = $('#board').children().eq(ships[ship][0])
                 if (ships[ship][1] == 0) {
-                    $('#board').children().eq(ships[ship][0]).append('<i class="fas fa-fighter-jet refresh" style="color:' + color + ';"></i>')
+                    current.append('<i class="fas fa-fighter-jet refresh" style="color:' + color + ';"></i>')
                 } else {
-                    $('#board').children().eq(ships[ship][0]).append('<i class="fas fa-tractor refresh" style="color:' + color + ';"></i>')
+                    current.append('<i class="fas fa-tractor refresh" style="color:' + color + ';"></i>')
                 }
+                //Add arrows
+                var offset = current.offset();
+                var width = current.width();
+                var height = current.height();
+                var centerX = offset.left + width / 2;
+                var centerY = offset.top + height / 2;
+                 
+
             }
             for (var yard in shipyards) {
                 console.log($('#board').children().eq(shipyards[yard]))
