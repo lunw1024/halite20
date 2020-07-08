@@ -263,7 +263,7 @@ class Calculator:
         ships = board.current_player.ships
         shipyards = board.current_player.shipyards
 
-        self.closestShipyardMap(shipyards)
+        self.closestShipyardMap(shipyards,ships)
 
         self.shipMaps = {}
         for ship in ships:
@@ -297,16 +297,18 @@ class Calculator:
             if ship.player_id != self.me:
                 self.enemyShipHalite[ship.position.x][ship.position.y] = ship.halite
     
-    def closestShipyardMap(self,shipyards):
+    def closestShipyardMap(self,shipyards,ships):
         self.closestShipyard = [[None for y in range(self.CFG.size)]for x in range(self.CFG.size)]
-        if len(shipyards) > 0:
-            for x in range(self.CFG.size):
-                for y in range(self.CFG.size):
-                    minimum = math.inf
-                    for shipyard in shipyards:
-                        if nav.dist(Point(x,y),shipyard.position) < minimum:
-                            minimum = nav.dist(Point(x,y),shipyard.position)
-                            self.closestShipyard[x][y] = shipyard
+        if len(shipyards) == 0:
+            shipyards = [max(ships,key=lambda ship : ship.halite)]
+        for x in range(self.CFG.size):
+            for y in range(self.CFG.size):
+                minimum = math.inf
+                for shipyard in shipyards:
+                    if nav.dist(Point(x,y),shipyard.position) < minimum:
+                        minimum = nav.dist(Point(x,y),shipyard.position)
+                        self.closestShipyard[x][y] = shipyard
+        
         
 
     #Generate a control map. ships : unit map of allies / opponents
@@ -410,7 +412,7 @@ def score(ship, cell,board):
     for target in nav.getAdjacent(ship.position):
         if board.cells[target].ship != None:
             targetShip = board.cells[target].ship
-            if targetShip.player != calc.me and targetShip.halite <= ship.halite:
+            if targetShip.player.id != calc.me and targetShip.halite <= ship.halite:
                 res -= 10000
 
     # Penalize for Halite on board to urge ships to go back to base
@@ -448,9 +450,6 @@ def shipyardScore(cell):
 @board_agent
 def agent(board):
     global nav, calc
-
-    print("TURN ===",board.step)
-
     
     '''
     if board.step > 5:
@@ -517,7 +516,7 @@ def agent(board):
         for target in nav.getAdjacent(ship.position):
             if board.cells[target].ship != None:
                 targetShip = board.cells[target].ship
-                if targetShip.player != calc.me and targetShip.halite > ship.halite:
+                if targetShip.player.id != calc.me and targetShip.halite > ship.halite:
                     action[ship] = (100,ship,targetShip.position,"attack")
         
         # Already has task
@@ -529,7 +528,7 @@ def agent(board):
         for target in nav.getAdjacent(ship.position):
             if board.cells[target].ship != None:
                 targetShip = board.cells[target].ship
-                if targetShip.player != calc.me and targetShip.halite < ship.halite:
+                if targetShip.player.id != calc.me and targetShip.halite < ship.halite:
                     action[ship] = (100000,ship,calc.closestShipyard[ship.position.x][ship.position.y].position,"return")
 
         if ship in action:

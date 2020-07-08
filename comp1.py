@@ -449,6 +449,7 @@ def agent(obs, config):
   global prev_board
   global me
   global did_init
+  
   #Do initialization 1 time
   start_step=time.time()
   if start is None:
