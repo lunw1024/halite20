@@ -15,15 +15,30 @@ def build(folder):
     output = open(folder+".py","w").close()
     output = open(folder+".py","a")
 
+    f = open(folder + "/dependency.py","r")
+    for line in f:
+        output.write(line)
+    output.write("\n")
+    f.close()
+
     for file in files:
-        if file == folder + "/agent.py":
+        if file == folder + "/agent.py" or file == folder+"/dependency.py":
             continue
         f = open(file,"r")
-        output.write(f.read())
+        for line in f:
+            #Ignore all import statements
+            if line.startsWith('from') or line.startsWith ('import'):
+                continue
+            output.write(line)
         output.write("\n")
         f.close()
+    #Final agent.py
     f = open(folder + "/agent.py","r")
-    output.write(f.read())
+    for line in f:
+        #Ignore all import statements
+        if line.startsWith('from') or line.startsWith ('import'):
+            continue
+        output.write(line)
     f.close()
 
     output.close()
