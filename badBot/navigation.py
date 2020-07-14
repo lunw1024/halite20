@@ -76,26 +76,26 @@ def a_move(s : Ship, t : Point, inBlocked):
 
     #A*
     pred = {}
-    dist = {}
+    calcDist = {}
     pq = PriorityQueue()
     pqMap = {}
 
     pqMap[dist(sPos,t)] = [sPos]
     pq.put(dist(sPos,t))
     pred[sPos] = sPos
-    dist[sPos] = dist(sPos,t)
+    calcDist[sPos] = dist(sPos,t)
 
         # Main
 
     while not pq.empty():
-        if t in dist:
+        if t in calcDist:
             break
         currentPoint = pqMap.get(pq.get()).pop()
         for processPoint in get_adjacent(currentPoint):
-            if blocked[processPoint.x][processPoint.y] or processPoint in dist: 
+            if blocked[processPoint.x][processPoint.y] or processPoint in calcDist: 
                 continue
-            dist[processPoint] = dist[currentPoint] + 1
-            priority =  dist[processPoint] + dist(processPoint,t)
+            calcDist[processPoint] = calcDist[currentPoint] + 1
+            priority =  calcDist[processPoint] + dist(processPoint,t)
             pqMap[priority] = pqMap.get(priority,[])
             pqMap[priority].append(processPoint)
             pq.put(priority)

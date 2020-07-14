@@ -27,7 +27,7 @@ def build(folder):
         f = open(file,"r")
         for line in f:
             #Ignore all import statements
-            if line.startsWith('from') or line.startsWith ('import'):
+            if line.startswith('from') or line.startswith ('import'):
                 continue
             output.write(line)
         output.write("\n")
@@ -36,7 +36,7 @@ def build(folder):
     f = open(folder + "/agent.py","r")
     for line in f:
         #Ignore all import statements
-        if line.startsWith('from') or line.startsWith ('import'):
+        if line.startswith('from') or line.startswith ('import'):
             continue
         output.write(line)
     f.close()
