@@ -1,11 +1,15 @@
+from dependency import *
+from navigation import *
+
 # Core strategy
 
+action = {} #ship -> [value,ship,target]
+
 def ship_tasks(): # return updated tasks
+    global action
     cfg = state['configuration']
     board = state['board']
     me = board.current_player
-    
-    action = {} #ship -> [value,ship,target]
     tasks = {}
     assign = []
 
@@ -47,11 +51,11 @@ def ship_tasks(): # return updated tasks
     # TODO: Remove nested for loop
     for i,ship in enumerate(assign):
         for j,cell in enumerate(targets):
-            rewards[i, j] = naiveReward(ship,cell)
+            rewards[i, j] = naive_reward(ship,cell)
 
     rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True) # rows[i] -> cols[i]
     for r, c in zip(rows, cols):
-        action[assign[r]] = (naiveReward(assign[r],targets[c]),assign[r],targets[c].position)
+        action[assign[r]] = (naive_reward(assign[r],targets[c]),assign[r],targets[c].position)
 
     #TODO: Add shipyard attack
     #Process actions
@@ -63,22 +67,38 @@ def ship_tasks(): # return updated tasks
         sPos = act[1].position 
         if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
             act[1].next_action = ShipAction.CONVERT
-
-
     return
 
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
+    shipyards.sort(reverse=True,key=lambda shipyard : state['haliteSpread'][shipyard.position.x][shipyard.position.y])
     for shipyard in shipyards:
         if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
             shipyard.next_action = ShipyardAction.SPAWN   
             state['currentHalite'] -= 500
 
 def convert_tasks():
+    global action
+
     # Add convertion tasks
-    currentShipyards = state['myShipyards']
+
+    rewardMap = shipyard_reward_map() # Best area to build a shipyard
+    currentShipyards = state['myShipyards'] # Shipyards "existing"
+    targetShipyards = currentShipyards[:]
+
+    t = np.where(rewardMap==np.amax(rewardMap))
+    tx,ty = list(zip(t[0], t[1]))[0]
+
+    # Calculate the reward for each cell
+
     if len(currentShipyards) == 0:
-        maxShip = max(state['myShips'],key=lambda ship : ship.halite)
-        state['allyShipyard'][maxShip.position.x][maxShip.position.y] = 1
-        state['closestShipyard'] = closest_shipyard([maxShip])
-    
+        # Grab the closest ship to the target and build.
+        closest  = closest_ship(Point(tx,ty))
+        action[closest] = (math.inf,closest,Point(tx,ty))
+        targetShipyards.append(state['board'].cells[Point(tx,ty)])
+        state['currentHalite'] -= 500
+    elif len(state['myShips']) >= len(currentShipyards) * 5:
+        targetShipyards.append(state['board'].cells[Point(tx,ty)])
+        state['currentHalite'] -= 500
+
+    state['closestShipyard'] = closest_shipyard(targetShipyards)

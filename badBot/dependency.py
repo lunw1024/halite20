@@ -14,13 +14,13 @@ from queue import PriorityQueue
     # All game state goes here - everything, even mundane
 state = {}
 
-    # Contains all weights to be initialized - everything, no magic numbers of HUMAN_SET
-    # Optimization through bayesian, genetic, annealing etc
-    # A list of NP vectors - each vector represents one "layer" of weights in a network
-    # AKA - a custom, simple, neural net. TensorFlow is overkill for what we need, as there is no backpropagation
-    # TODO: If strategy involves supervised learning, change weights to be compatible with TF.
+    # Contains all weights to be initialized
+    #TODO: Train!
 
-weights = [] 
+weights = [
+    # shipyard_reward weights - 0
+    np.array([1,1,-1,0.5,0.2])
+] 
 
 def setWeight(v):
     global weights
@@ -37,7 +37,8 @@ def init(board):
 
 # Run start of every turn
 def update(board):
-
+    global action
+    action = {}
     state['currentHalite'] = board.current_player.halite
     state['next'] = np.zeros((board.configuration.size,board.configuration.size))
     state['board'] = board

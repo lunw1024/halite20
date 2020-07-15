@@ -14,13 +14,13 @@ from queue import PriorityQueue
     # All game state goes here - everything, even mundane
 state = {}
 
-    # Contains all weights to be initialized - everything, no magic numbers of HUMAN_SET
-    # Optimization through bayesian, genetic, annealing etc
-    # A list of NP vectors - each vector represents one "layer" of weights in a network
-    # AKA - a custom, simple, neural net. TensorFlow is overkill for what we need, as there is no backpropagation
-    # TODO: If strategy involves supervised learning, change weights to be compatible with TF.
+    # Contains all weights to be initialized
+    #TODO: Train!
 
-weights = [] 
+weights = [
+    # shipyard_reward weights - 0
+    np.array([1,1,-1,0.5,0.2])
+] 
 
 def setWeight(v):
     global weights
@@ -37,7 +37,8 @@ def init(board):
 
 # Run start of every turn
 def update(board):
-
+    global action
+    action = {}
     state['currentHalite'] = board.current_player.halite
     state['next'] = np.zeros((board.configuration.size,board.configuration.size))
     state['board'] = board
@@ -51,14 +52,32 @@ def update(board):
     # Calc processes
     encode()
 # General random helper functions that are not strictly "process" or in "nav"
+
+# Map from 0 to 1
+def normalize(v):
+    norm = np.linalg.norm(v,np.inf)
+    if norm == 0: 
+       return v
+    return v / norm
+
+def closest_ship(t):
+    res = None
+    for ship in state['myShips']:
+        if res == None:
+            res = ship
+        elif dist(t,res.point) > dist(t,ship.point):
+            res = ship
+    return res
+
 # Core strategy
 
+action = {} #ship -> [value,ship,target]
+
 def ship_tasks(): # return updated tasks
+    global action
     cfg = state['configuration']
     board = state['board']
     me = board.current_player
-    
-    action = {} #ship -> [value,ship,target]
     tasks = {}
     assign = []
 
@@ -100,11 +119,11 @@ def ship_tasks(): # return updated tasks
     # TODO: Remove nested for loop
     for i,ship in enumerate(assign):
         for j,cell in enumerate(targets):
-            rewards[i, j] = naiveReward(ship,cell)
+            rewards[i, j] = naive_reward(ship,cell)
 
     rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True) # rows[i] -> cols[i]
     for r, c in zip(rows, cols):
-        action[assign[r]] = (naiveReward(assign[r],targets[c]),assign[r],targets[c].position)
+        action[assign[r]] = (naive_reward(assign[r],targets[c]),assign[r],targets[c].position)
 
     #TODO: Add shipyard attack
     #Process actions
@@ -116,25 +135,42 @@ def ship_tasks(): # return updated tasks
         sPos = act[1].position 
         if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
             act[1].next_action = ShipAction.CONVERT
-
-
     return
 
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
+    shipyards.sort(reverse=True,key=lambda shipyard : state['haliteSpread'][shipyard.position.x][shipyard.position.y])
     for shipyard in shipyards:
         if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
             shipyard.next_action = ShipyardAction.SPAWN   
             state['currentHalite'] -= 500
 
 def convert_tasks():
+    global action
+
     # Add convertion tasks
-    currentShipyards = state['myShipyards']
+
+    rewardMap = shipyard_reward_map() # Best area to build a shipyard
+    currentShipyards = state['myShipyards'] # Shipyards "existing"
+    targetShipyards = currentShipyards[:]
+
+    t = np.where(rewardMap==np.amax(rewardMap))
+    tx,ty = list(zip(t[0], t[1]))[0]
+
+    # Calculate the reward for each cell
+
     if len(currentShipyards) == 0:
-        maxShip = max(state['myShips'],key=lambda ship : ship.halite)
-        state['allyShipyard'][maxShip.position.x][maxShip.position.y] = 1
-        state['closestShipyard'] = closest_shipyard([maxShip])
-    
+        # Grab the closest ship to the target and build.
+        closest  = closest_ship(Point(tx,ty))
+        action[closest] = (math.inf,closest,Point(tx,ty))
+        targetShipyards.append(state['board'].cells[Point(tx,ty)])
+        state['currentHalite'] -= 500
+    elif len(state['myShips']) >= len(currentShipyards) * 5:
+        targetShipyards.append(state['board'].cells[Point(tx,ty)])
+        state['currentHalite'] -= 500
+
+    state['closestShipyard'] = closest_shipyard(targetShipyards)
+
 # General calculations whose values are expected to be used in multiple instances
 # Basically calc in botv1.0. 
 # Run in update() - see dependency.py
@@ -148,6 +184,15 @@ def encode():
     state['haliteMap'] = np.zeros((N, N))
     for cell in state['cells']:
         state['haliteMap'][cell.position.x][cell.position.y] = cell.halite
+    # Halite Spread
+    state['haliteSpread'] = np.copy(state['haliteMap'])
+    for i in range(3):
+        state['haliteSpread'] += np.roll(state['haliteMap'],i,axis=0) / (i+1)
+        state['haliteSpread'] += np.roll(state['haliteMap'],-i,axis=0) / (i+1)
+    temp = state['haliteSpread'].copy()
+    for i in range(3):
+        state['haliteSpread'] += np.roll(temp,i,axis=1) / (i+1)
+        state['haliteSpread'] += np.roll(temp,-i,axis=1) / (i+1)
     # Ships
     state['shipMap'] = np.zeros((state['playerNum'], N, N))
     for ship in state['ships']:
@@ -353,11 +398,11 @@ def a_move(s : Ship, t : Point, inBlocked):
 # Key function
 # For a ship, return the inherent "value" of the ship to get to a target cell
 # This should take the form of a neural network
-def getReward(ship,cell):
+def get_reward(ship,cell):
     global state
     return 1
 
-def naiveReward(ship,cell):
+def naive_reward(ship,cell):
     # For testing purposes
     if cell.ship != None and cell.ship.player_id != state['me'] and cell.ship.halite < ship.halite:
         return -100
@@ -366,6 +411,43 @@ def naiveReward(ship,cell):
         if cell.ship == ship:
             res += 50
         return res
+
+# Returns the reward of converting a shipyard in the area, relative.
+# TODO: Convert to absolute instead of relative
+
+def shipyard_reward_map():
+
+    N = state['configuration'].size
+
+    closestShipyard = closestShipyard = np.zeros((N,N))
+    if len(state['myShipyards']) != 0:
+        closestShipyardPosition = state['closestShipyard']
+        for x in range(N):
+            for y in range(N):
+                closestShipyard[x][y] = dist(Point(x,y),closestShipyardPosition[x][y])
+
+    closestShipyard = normalize(closestShipyard.flatten())
+    haliteSpread = normalize(state['haliteSpread'].flatten())
+    halite = normalize(state['haliteMap'].flatten())
+    control = normalize(state['controlMap'].flatten())
+    controlAlly = control.copy()
+    controlAlly[controlAlly<0] = 0
+    controlOpponent = control.copy()
+    controlOpponent[controlOpponent>0] = 0
+
+    tensorIn = np.array([closestShipyard,haliteSpread,halite,controlOpponent,controlAlly]).T
+
+    # Linear calculation
+    # TODO: Improve by converting to a deep NN
+    tensorOut = tensorIn @ weights[0]
+    res = np.reshape(tensorOut,(N,N))
+
+    return res
+
+
+
+        
+
 # The final function
 
 @board_agent

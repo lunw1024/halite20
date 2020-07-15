@@ -1,6 +1,8 @@
 # General calculations whose values are expected to be used in multiple instances
 # Basically calc in botv1.0. 
 # Run in update() - see dependency.py
+from dependency import *
+from navigation import *
 
 def encode():
     global state
@@ -11,6 +13,15 @@ def encode():
     state['haliteMap'] = np.zeros((N, N))
     for cell in state['cells']:
         state['haliteMap'][cell.position.x][cell.position.y] = cell.halite
+    # Halite Spread
+    state['haliteSpread'] = np.copy(state['haliteMap'])
+    for i in range(3):
+        state['haliteSpread'] += np.roll(state['haliteMap'],i,axis=0) / (i+1)
+        state['haliteSpread'] += np.roll(state['haliteMap'],-i,axis=0) / (i+1)
+    temp = state['haliteSpread'].copy()
+    for i in range(3):
+        state['haliteSpread'] += np.roll(temp,i,axis=1) / (i+1)
+        state['haliteSpread'] += np.roll(temp,-i,axis=1) / (i+1)
     # Ships
     state['shipMap'] = np.zeros((state['playerNum'], N, N))
     for ship in state['ships']:
