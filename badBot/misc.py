@@ -12,7 +12,7 @@ def closest_ship(t):
     for ship in state['myShips']:
         if res == None:
             res = ship
-        elif dist(t,res.point) > dist(t,ship.point):
+        elif dist(t,res.position) > dist(t,ship.position):
             res = ship
     return res
 

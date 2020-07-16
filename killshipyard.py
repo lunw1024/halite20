@@ -65,7 +65,7 @@ def closest_ship(t):
     for ship in state['myShips']:
         if res == None:
             res = ship
-        elif dist(t,res.position) > dist(t,ship.position):
+        elif dist(t,res.point) > dist(t,ship.position):
             res = ship
     return res
 
@@ -123,46 +123,17 @@ def ship_tasks(): # return updated tasks
 
     for ship in me.ships:
         # Run 
-        for target in get_adjacent(ship.position):
-            if board.cells[target].ship != None:
-                targetShip = board.cells[target].ship
-                if targetShip.player.id != state['me'] and targetShip.halite < ship.halite:
-                    action[ship] = (math.inf,ship,state['closestShipyard'][ship.position.x][ship.position.y])
-
-        if ship in action:
+        if ship in action: 
             continue
 
-        # Return
-        RETURN_THRESHOLD = 5
-        if ship.halite > RETURN_THRESHOLD * state['haliteMean'] + board.cells[ship.position].halite: #TODO Optimize the return threshold
-            action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
-        if board.step > cfg['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
-            action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
+        try:
+            target = board.opponents[0].shipyards[0]
+            action[ship] = (math.inf,ship,target.cell.position)
+        except:
+            pass
+        
 
-        if ship in action:
-            continue
             
-        assign.append(ship)
-
-    # Reward based
-        # Attack, Mine
-    targets = []
-    for i in board.cells.values(): # Filter targets
-        if i.shipyard != None:
-            continue
-        if i.halite == 0 and i.ship == None:
-            continue
-        targets.append(i)
-    rewards = np.zeros((len(assign), len(targets)))
-
-    # TODO: Remove nested for loop
-    for i,ship in enumerate(assign):
-        for j,cell in enumerate(targets):
-            rewards[i, j] = get_reward(ship,cell)
-
-    rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True) # rows[i] -> cols[i]
-    for r, c in zip(rows, cols):
-        action[assign[r]] = (rewards[r][c],assign[r],targets[c].position)
 
     #TODO: Add shipyard attack
     #Process actions
@@ -182,7 +153,7 @@ def spawn_tasks():
 
     for shipyard in shipyards:
         if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
-            if state['board'].step < state['configuration']['episodeSteps'] / 2 and len(state['myShips']) < 20:
+            if state['board'].step < state['configuration']['episodeSteps'] / 2:
                 shipyard.next_action = ShipyardAction.SPAWN   
                 state['currentHalite'] -= 500
             elif shipyard.cell.ship != None and shipyard.cell.ship.player_id != state['me'] and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
@@ -287,7 +258,7 @@ def get_avoidance(s):
     enemyBlock = enemyBlock + np.roll(temp,1,axis=1)
     enemyBlock = enemyBlock + np.roll(temp,-1,axis=1)
 
-    enemyBlock = enemyBlock + state['enemyShipyard'] - state['allyShipyard']*5
+    enemyBlock = enemyBlock - state['allyShipyard']*5
 
     blocked = enemyBlock
     blocked = np.where(blocked>0,1,0)

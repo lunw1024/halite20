@@ -77,7 +77,7 @@ def spawn_tasks():
 
     for shipyard in shipyards:
         if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
-            if state['board'].step < state['configuration']['episodeSteps'] / 2:
+            if state['board'].step < state['configuration']['episodeSteps'] / 2 and len(state['myShips']) < 20:
                 shipyard.next_action = ShipyardAction.SPAWN   
                 state['currentHalite'] -= 500
             elif shipyard.cell.ship != None and shipyard.cell.ship.player_id != state['me'] and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
