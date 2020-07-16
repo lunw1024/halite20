@@ -136,6 +136,8 @@ def ship_tasks(): # return updated tasks
         RETURN_THRESHOLD = 5
         if ship.halite > RETURN_THRESHOLD * state['haliteMean'] + board.cells[ship.position].halite: #TODO Optimize the return threshold
             action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
+        if board.step > cfg['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
+            action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
 
         if ship in action:
             continue
@@ -177,10 +179,21 @@ def ship_tasks(): # return updated tasks
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
     shipyards.sort(reverse=True,key=lambda shipyard : state['haliteSpread'][shipyard.position.x][shipyard.position.y])
+
     for shipyard in shipyards:
         if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
-            shipyard.next_action = ShipyardAction.SPAWN   
-            state['currentHalite'] -= 500
+            if state['board'].step < state['configuration']['episodeSteps'] / 2:
+                shipyard.next_action = ShipyardAction.SPAWN   
+                state['currentHalite'] -= 500
+            elif shipyard.cell.ship != None and shipyard.cell.ship.player_id != state['me'] and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
+                shipyard.next_action = ShipyardAction.SPAWN   
+                state['currentHalite'] -= 500
+            elif len(state['myShips']) <= 10 and state['board'].step < state['configuration']['episodeSteps'] * (3/4):
+                shipyard.next_action = ShipyardAction.SPAWN   
+                state['currentHalite'] -= 500
+            elif len(state['myShips']) <= 2:
+                shipyard.next_action = ShipyardAction.SPAWN   
+                state['currentHalite'] -= 500
 
 def convert_tasks():
     global action
