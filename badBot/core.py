@@ -51,11 +51,11 @@ def ship_tasks(): # return updated tasks
     # TODO: Remove nested for loop
     for i,ship in enumerate(assign):
         for j,cell in enumerate(targets):
-            rewards[i, j] = naive_reward(ship,cell)
+            rewards[i, j] = get_reward(ship,cell)
 
     rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True) # rows[i] -> cols[i]
     for r, c in zip(rows, cols):
-        action[assign[r]] = (naive_reward(assign[r],targets[c]),assign[r],targets[c].position)
+        action[assign[r]] = (rewards[r][c],assign[r],targets[c].position)
 
     #TODO: Add shipyard attack
     #Process actions

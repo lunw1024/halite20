@@ -69,6 +69,43 @@ def closest_ship(t):
             res = ship
     return res
 
+
+# optimus_mine helpers
+
+MAX_CHASE_RANGE = 2
+CHASE_PUNISHMENT = 2
+SHIPYARD_DEMOLISH_REWARD = 700
+
+OPTIMAL_MINING_TURNS = np.array( # optimal mining turn for [Cargo/Deposit, travelTime]
+  [[0, 2, 3, 4, 4, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 8],
+   [0, 1, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7, 7, 7],
+   [0, 0, 2, 2, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 7],
+   [0, 0, 1, 2, 2, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6],
+   [0, 0, 0, 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6],
+   [0, 0, 0, 0, 0, 1, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5],
+   [0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 2, 2],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+   [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+def num_turns_to_mine(C, D, travelTime, minMineTurns=1): # https://www.kaggle.com/krishnaharish/optimus-mine-agent
+    # How many turns should we plan on mining?
+    # C = carried halite, D = halite deposit, travelTime = steps to square and back to shipyard
+    travelTime = int(np.clip(travelTime, 0, OPTIMAL_MINING_TURNS.shape[1] - 1))
+    if C == 0:
+        cdRatio = 0
+    elif D == 0:
+        cdRatio = OPTIMAL_MINING_TURNS.shape[0] - 1
+    else:
+        cdRatio = np.clip(int(math.log(C/D)*2.5+5.5), 0, OPTIMAL_MINING_TURNS.shape[0] - 1)
+    return max(OPTIMAL_MINING_TURNS[cdRatio, travelTime], minMineTurns)
+
+def halite_per_turn(cargo, deposit, travelTime, minMineTurns=1):
+    turns = num_turns_to_mine(cargo, deposit, travelTime, minMineTurns)
+    mined = cargo + (1 - .75**turns) * deposit
+    return mined / (travelTime + turns)
+
 # Core strategy
 
 action = {} #ship -> [value,ship,target]
@@ -119,11 +156,11 @@ def ship_tasks(): # return updated tasks
     # TODO: Remove nested for loop
     for i,ship in enumerate(assign):
         for j,cell in enumerate(targets):
-            rewards[i, j] = naive_reward(ship,cell)
+            rewards[i, j] = get_reward(ship,cell)
 
     rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True) # rows[i] -> cols[i]
     for r, c in zip(rows, cols):
-        action[assign[r]] = (naive_reward(assign[r],targets[c]),assign[r],targets[c].position)
+        action[assign[r]] = (rewards[r][c],assign[r],targets[c].position)
 
     #TODO: Add shipyard attack
     #Process actions
@@ -399,8 +436,26 @@ def a_move(s : Ship, t : Point, inBlocked):
 # For a ship, return the inherent "value" of the ship to get to a target cell
 # This should take the form of a neural network
 def get_reward(ship,cell):
-    global state
-    return 1
+    return optimus_reward(ship,cell)
+
+def optimus_reward(ship,cell):
+    reward = 0
+    INF = int(1e9)
+    me = state['board'].current_player
+    if (cell.ship is None or cell.ship is ship) and cell.shipyard is None: # mineral
+        d1 = dist(ship.position, cell.position)
+        d2 = dist(cell.position, state['closestShipyard'][cell.position.x][cell.position.y]) # TODO: edge case no shipyards
+        reward = halite_per_turn(ship.halite, cell.halite, d1 + d2)
+    elif cell.ship is not None and cell.ship.player.is_current_player: # friendly ship
+        reward = -INF # avoid clustering
+    elif cell.ship is not None and not cell.ship.player.is_current_player: # enemy ship
+        dist_ = dist(ship.position, cell.position)
+        reward = cell.ship.halite / (dist_ * CHASE_PUNISHMENT) if cell.ship.halite > me.halite and dist_ <= MAX_CHASE_RANGE else 0 # TUNABLE
+    elif cell.shipyard is not None and cell.shipyard.player.is_current_player: # friendly shipyard
+        reward = ship.halite / max(dist(ship.position, cell.position), 0.1) # TODO: TUNABLE?
+    elif cell.shipyard is not None and not cell.shipyard.player.is_current_player: # enemy shipyard
+        reward = SHIPYARD_DEMOLISH_REWARD / dist(ship.position, cell.position)
+    return reward
 
 def naive_reward(ship,cell):
     # For testing purposes

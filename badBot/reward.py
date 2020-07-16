@@ -2,8 +2,26 @@
 # For a ship, return the inherent "value" of the ship to get to a target cell
 # This should take the form of a neural network
 def get_reward(ship,cell):
-    global state
-    return 1
+    return optimus_reward(ship,cell)
+
+def optimus_reward(ship,cell):
+    reward = 0
+    INF = int(1e9)
+    me = state['board'].current_player
+    if (cell.ship is None or cell.ship is ship) and cell.shipyard is None: # mineral
+        d1 = dist(ship.position, cell.position)
+        d2 = dist(cell.position, state['closestShipyard'][cell.position.x][cell.position.y]) # TODO: edge case no shipyards
+        reward = halite_per_turn(ship.halite, cell.halite, d1 + d2)
+    elif cell.ship is not None and cell.ship.player.is_current_player: # friendly ship
+        reward = -INF # avoid clustering
+    elif cell.ship is not None and not cell.ship.player.is_current_player: # enemy ship
+        dist_ = dist(ship.position, cell.position)
+        reward = cell.ship.halite / (dist_ * CHASE_PUNISHMENT) if cell.ship.halite > me.halite and dist_ <= MAX_CHASE_RANGE else 0 # TUNABLE
+    elif cell.shipyard is not None and cell.shipyard.player.is_current_player: # friendly shipyard
+        reward = ship.halite / max(dist(ship.position, cell.position), 0.1) # TODO: TUNABLE?
+    elif cell.shipyard is not None and not cell.shipyard.player.is_current_player: # enemy shipyard
+        reward = SHIPYARD_DEMOLISH_REWARD / dist(ship.position, cell.position)
+    return reward
 
 def naive_reward(ship,cell):
     # For testing purposes
