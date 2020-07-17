@@ -1,4 +1,4 @@
-import glob, sys, getopt
+import glob, sys, getopt, os
 
 def build(folder):
     print("Building", folder)
@@ -14,6 +14,16 @@ def build(folder):
 
     output = open(folder+".py","w").close()
     output = open(folder+".py","a")
+
+    # Deserialize weights if exists
+    if os.path.isfile(folder+"/weights.txt"):
+        f = open(folder + "/weights.txt","r")
+        a = f.read()
+        f.close()
+        a = a.rstrip()
+        a = "weights='''"+a+"'''"
+        a = a + '\n'
+        output.write(a)
 
     f = open(folder + "/dependency.py","r")
     for line in f:
@@ -40,8 +50,9 @@ def build(folder):
             continue
         output.write(line)
     f.close()
-
     output.close()
+    #Check
+    os.system("python3 "+folder+'.py')
 
 if __name__ == "__main__":
     argv = sys.argv[1:]
