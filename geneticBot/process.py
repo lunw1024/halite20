@@ -37,7 +37,7 @@ def encode():
     # Estimated "value" of a ship
     #totalShips = len(state['ships'])
     #state['shipValue'] = state['haliteTotal'] / state
-    state['shipValue'] = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step)
+    state['shipValue'] = (state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step)) * 0.8
     # Friendly units
     state['ally'] = state['shipMap'][state['me']]
     # Friendly shipyards

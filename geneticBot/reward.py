@@ -106,7 +106,7 @@ def shipyard_reward_map():
 
     # Linear calculation
     # TODO: Improve by converting to a deep NN
-    tensorOut = tensorIn @ weights[0]
+    tensorOut = tensorIn @ np.concatenate((np.array([1]),weights[0]))
     res = np.reshape(tensorOut,(N,N))
 
     return res
