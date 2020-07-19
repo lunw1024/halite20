@@ -16,12 +16,12 @@ def encode():
     # Halite Spread
     state['haliteSpread'] = np.copy(state['haliteMap'])
     for i in range(1,5):
-        state['haliteSpread'] += np.roll(state['haliteMap'],i,axis=0) / 0.5**i
-        state['haliteSpread'] += np.roll(state['haliteMap'],-i,axis=0) / 0.5**i
+        state['haliteSpread'] += np.roll(state['haliteMap'],i,axis=0) * 0.5**i
+        state['haliteSpread'] += np.roll(state['haliteMap'],-i,axis=0) * 0.5**i
     temp = state['haliteSpread'].copy()
     for i in range(1,5):
-        state['haliteSpread'] += np.roll(temp,i,axis=1) / 0.5**i
-        state['haliteSpread'] += np.roll(temp,-i,axis=1) / 0.5**i
+        state['haliteSpread'] += np.roll(temp,i,axis=1) * 0.5**i
+        state['haliteSpread'] += np.roll(temp,-i,axis=1) *  0.5**i
     # Ships
     state['shipMap'] = np.zeros((state['playerNum'], N, N))
     for ship in state['ships']:
@@ -98,11 +98,11 @@ def control_map(ships,shipyards):
         res = np.copy(ships)
 
         for i in range(1,ITERATIONS+1):
-            res += np.roll(ships,i,axis=0) / 0.5**i
-            res += np.roll(ships,-i,axis=0) / 0.5**i
+            res += np.roll(ships,i,axis=0) * 0.5**i
+            res += np.roll(ships,-i,axis=0) * 0.5**i
         temp = res.copy()
         for i in range(1,ITERATIONS+1):
-            res += np.roll(temp,i,axis=1) / 0.5**i
-            res += np.roll(temp,-i,axis=1) / 0.5**i
+            res += np.roll(temp,i,axis=1) * 0.5**i
+            res += np.roll(temp,-i,axis=1) * 0.5**i
         
         return res + shipyards

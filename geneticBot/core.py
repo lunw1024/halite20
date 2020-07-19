@@ -30,7 +30,10 @@ def ship_tasks(): # return updated tasks
         # Return
         if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
             action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
-
+        RETURN_THRESHOLD = 5
+        # Temp
+        if ship.halite > RETURN_THRESHOLD * state['haliteMean'] + board.cells[ship.position].halite: #TODO Optimize the return threshold
+            action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
         if ship in action:
             continue
 
@@ -46,7 +49,7 @@ def ship_tasks(): # return updated tasks
             for j in range(len(state['myShips'])):
                 targets.append(i)
             continue
-        if i.halite == 0 and i.ship == None:
+        if i.halite < state['haliteMean'] / 3 and i.ship == None:
             continue
         targets.append(i)
     rewards = np.zeros((len(assign), len(targets)))
@@ -73,7 +76,6 @@ def ship_tasks(): # return updated tasks
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
     shipyards.sort(reverse=True,key=lambda shipyard : state['haliteSpread'][shipyard.position.x][shipyard.position.y])
-
     for shipyard in shipyards:
         if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
             if state['shipValue'] > 500:

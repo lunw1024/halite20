@@ -4,17 +4,16 @@
 def get_reward(ship,cell):
 
     #Don't be stupid
-    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard != None:
+    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
         return 0
     #Mining reward
     elif (cell.ship is None or cell.ship.player_id==state['me']) and cell.shipyard is None:
         return mine_reward(ship,cell)
-    elif cell.ship is not None and not cell.ship.player_id==state['me']:
+    elif cell.ship is not None and cell.ship.player_id != state['me']:
         return attack_reward(ship,cell)
     elif cell.shipyard is not None and cell.shipyard.player_id==state['me']:
-        return return_reward(ship,cell)
-    else: 
-        pass
+        #return return_reward(ship,cell)
+        return 0
     return 0
 
 def mine_reward(ship,cell):
@@ -32,7 +31,6 @@ def mine_reward(ship,cell):
         # As majority of features are shared, see process.py mine_value_map()
 
     halitePerTurn = halite_per_turn(ship.halite,cell.halite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
-
     return halitePerTurn + state['mineValueMap'][cPos.x][cPos.y]
 
 def attack_reward(ship,cell):
@@ -47,7 +45,6 @@ def attack_reward(ship,cell):
         # Halite spread on target ship
 
     # Currently just a placeholder
-    
     return max(cell.halite,state['controlMap'][cPos.x][cPos.y]*100) / dist(ship.position,cell.position)**2 * weights[2][0]
 
 def return_reward(ship,cell):

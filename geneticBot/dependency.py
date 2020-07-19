@@ -25,6 +25,7 @@ weights = temp
 # Init function - called at the start of each game
 def init(board):
     global state
+    np.set_printoptions(precision=3)
     state['configuration'] = board.configuration
     state['me'] = board.current_player_id
     state['playerNum'] = len(board.players)

@@ -51,6 +51,6 @@ def num_turns_to_mine(C, D, travelTime, minMineTurns=1): # https://www.kaggle.co
 def halite_per_turn(cargo, deposit, shipTime, returnTime, minMineTurns=1):
     travelTime = shipTime + returnTime
     turns = num_turns_to_mine(cargo, deposit, travelTime, minMineTurns)
-    actualDeposit = max(500,deposit + 1.02 ** shipTime)
-    mined = cargo + (1 - .75**turns) * actualDeposit
+    actualDeposit = min(500,deposit * 1.02 ** shipTime)
+    mined = (1 - .75**turns) * actualDeposit
     return mined / (travelTime + turns)

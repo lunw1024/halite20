@@ -1,6 +1,6 @@
-weights='''0.8 0.8 -1.0 0.5 0.2
+weights='''1.0 1.0 -1 0.5 0.2
 0 0 0 0
-1.0
+0.3
 3.0'''
 # Contains all dependencies used in bot
 # First file loaded
@@ -29,6 +29,7 @@ weights = temp
 # Init function - called at the start of each game
 def init(board):
     global state
+    np.set_printoptions(precision=3)
     state['configuration'] = board.configuration
     state['me'] = board.current_player_id
     state['playerNum'] = len(board.players)
@@ -107,8 +108,8 @@ def num_turns_to_mine(C, D, travelTime, minMineTurns=1): # https://www.kaggle.co
 def halite_per_turn(cargo, deposit, shipTime, returnTime, minMineTurns=1):
     travelTime = shipTime + returnTime
     turns = num_turns_to_mine(cargo, deposit, travelTime, minMineTurns)
-    actualDeposit = max(500,deposit + 1.02 ** shipTime)
-    mined = cargo + (1 - .75**turns) * actualDeposit
+    actualDeposit = min(500,deposit * 1.02 ** shipTime)
+    mined = (1 - .75**turns) * actualDeposit
     return mined / (travelTime + turns)
 
 # Core strategy
@@ -140,7 +141,10 @@ def ship_tasks(): # return updated tasks
         # Return
         if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
             action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
-
+        RETURN_THRESHOLD = 5
+        # Temp
+        if ship.halite > RETURN_THRESHOLD * state['haliteMean'] + board.cells[ship.position].halite: #TODO Optimize the return threshold
+            action[ship] = (ship.halite,ship,state['closestShipyard'][ship.position.x][ship.position.y])
         if ship in action:
             continue
 
@@ -156,7 +160,7 @@ def ship_tasks(): # return updated tasks
             for j in range(len(state['myShips'])):
                 targets.append(i)
             continue
-        if i.halite == 0 and i.ship == None:
+        if i.halite < state['haliteMean'] / 3 and i.ship == None:
             continue
         targets.append(i)
     rewards = np.zeros((len(assign), len(targets)))
@@ -183,7 +187,6 @@ def ship_tasks(): # return updated tasks
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
     shipyards.sort(reverse=True,key=lambda shipyard : state['haliteSpread'][shipyard.position.x][shipyard.position.y])
-
     for shipyard in shipyards:
         if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
             if state['shipValue'] > 500:
@@ -238,12 +241,12 @@ def encode():
     # Halite Spread
     state['haliteSpread'] = np.copy(state['haliteMap'])
     for i in range(1,5):
-        state['haliteSpread'] += np.roll(state['haliteMap'],i,axis=0) / 0.5**i
-        state['haliteSpread'] += np.roll(state['haliteMap'],-i,axis=0) / 0.5**i
+        state['haliteSpread'] += np.roll(state['haliteMap'],i,axis=0) * 0.5**i
+        state['haliteSpread'] += np.roll(state['haliteMap'],-i,axis=0) * 0.5**i
     temp = state['haliteSpread'].copy()
     for i in range(1,5):
-        state['haliteSpread'] += np.roll(temp,i,axis=1) / 0.5**i
-        state['haliteSpread'] += np.roll(temp,-i,axis=1) / 0.5**i
+        state['haliteSpread'] += np.roll(temp,i,axis=1) * 0.5**i
+        state['haliteSpread'] += np.roll(temp,-i,axis=1) *  0.5**i
     # Ships
     state['shipMap'] = np.zeros((state['playerNum'], N, N))
     for ship in state['ships']:
@@ -320,12 +323,12 @@ def control_map(ships,shipyards):
         res = np.copy(ships)
 
         for i in range(1,ITERATIONS+1):
-            res += np.roll(ships,i,axis=0) / 0.5**i
-            res += np.roll(ships,-i,axis=0) / 0.5**i
+            res += np.roll(ships,i,axis=0) * 0.5**i
+            res += np.roll(ships,-i,axis=0) * 0.5**i
         temp = res.copy()
         for i in range(1,ITERATIONS+1):
-            res += np.roll(temp,i,axis=1) / 0.5**i
-            res += np.roll(temp,-i,axis=1) / 0.5**i
+            res += np.roll(temp,i,axis=1) * 0.5**i
+            res += np.roll(temp,-i,axis=1) * 0.5**i
         
         return res + shipyards
 
@@ -455,17 +458,16 @@ def a_move(s : Ship, t : Point, inBlocked):
 def get_reward(ship,cell):
 
     #Don't be stupid
-    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard != None:
+    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
         return 0
     #Mining reward
     elif (cell.ship is None or cell.ship.player_id==state['me']) and cell.shipyard is None:
         return mine_reward(ship,cell)
-    elif cell.ship is not None and not cell.ship.player_id==state['me']:
+    elif cell.ship is not None and cell.ship.player_id != state['me']:
         return attack_reward(ship,cell)
     elif cell.shipyard is not None and cell.shipyard.player_id==state['me']:
-        return return_reward(ship,cell)
-    else: 
-        pass
+        #return return_reward(ship,cell)
+        return 0
     return 0
 
 def mine_reward(ship,cell):
@@ -483,7 +485,6 @@ def mine_reward(ship,cell):
         # As majority of features are shared, see process.py mine_value_map()
 
     halitePerTurn = halite_per_turn(ship.halite,cell.halite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
-
     return halitePerTurn + state['mineValueMap'][cPos.x][cPos.y]
 
 def attack_reward(ship,cell):
@@ -498,7 +499,6 @@ def attack_reward(ship,cell):
         # Halite spread on target ship
 
     # Currently just a placeholder
-    
     return max(cell.halite,state['controlMap'][cPos.x][cPos.y]*100) / dist(ship.position,cell.position)**2 * weights[2][0]
 
 def return_reward(ship,cell):
