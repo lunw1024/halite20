@@ -1,7 +1,8 @@
-weights='''0.30515109627854997 -2.406763553135285 1.5031633634030817 -1.3351286307948977
-1.5355259780938955 -0.5606967796791413 1.8177092727971438 1.2356082136859232
-0.28120116995209443
--1.817723871696575'''
+weights='''1 -1 0.5 0.5
+0 0 0 0
+0.8778407774329174
+-1.5710483177447716
+0.8 -1'''
 # Contains all dependencies used in bot
 # First file loaded
 
@@ -262,7 +263,7 @@ def encode():
     # Estimated "value" of a ship
     #totalShips = len(state['ships'])
     #state['shipValue'] = state['haliteTotal'] / state
-    state['shipValue'] = (state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step)) * 0.8
+    state['shipValue'] = ship_value()
     # Friendly units
     state['ally'] = state['shipMap'][state['me']]
     # Friendly shipyards
@@ -286,6 +287,10 @@ def encode():
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
 
+def ship_value():
+    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step) * weights[4][0]
+    res += len(state['ships']) * weights[4][1]
+    return res
     
 def get_avoidance(s):
     threshold = s.halite
