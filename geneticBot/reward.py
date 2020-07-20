@@ -3,16 +3,17 @@
 # This should take the form of a neural network
 def get_reward(ship,cell):
 
-    #Don't be stupid
+    # Don't be stupid
     if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
         return 0
-    #Mining reward
-    elif (cell.ship is None or cell.ship.player_id==state['me']) and cell.shipyard is None:
+    # Mining reward
+    elif (cell.ship is None or cell.ship.player_id == state['me']) and cell.shipyard is None:
         return mine_reward(ship,cell)
     elif cell.ship is not None and cell.ship.player_id != state['me']:
         return attack_reward(ship,cell)
-    elif cell.shipyard is not None and cell.shipyard.player_id==state['me']:
-        #return return_reward(ship,cell)
+    elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
+        # return return_reward(ship,cell)
+        #TODO
         return 0
     return 0
 
@@ -48,7 +49,7 @@ def attack_reward(ship,cell):
     return max(cell.halite,state['controlMap'][cPos.x][cPos.y]*100) / dist(ship.position,cell.position)**2 * weights[2][0]
 
 def return_reward(ship,cell):
-
+    #TODO
     cPos = cell.position
 
     # Features

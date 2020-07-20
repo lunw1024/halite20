@@ -19,7 +19,7 @@ def directions_to(s: Point, t: Point) -> ShipAction:
     return candidates
 
 # Deserialize an integer which represents a point
-def unpack(n):
+def unpack(n) -> Point:
     N = state['configuration'].size
     return Point(n // N, n % N)
 
