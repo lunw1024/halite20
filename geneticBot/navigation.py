@@ -156,7 +156,7 @@ def micro_run(s):
             if nextMap[pos.x][pos.y]:
                 score[i] = -1
             elif state['board'].cells[pos].ship != None and state['board'].cells[pos].ship.player_id != state['me']:
-                if state['board'].cells[pos].ship.halite <= s.halite:
+                if state['board'].cells[pos].ship.halite >= s.halite:
                     score[i] = 100000
                 else:
                     score[i] += state['board'].cells[pos].ship.halite 
