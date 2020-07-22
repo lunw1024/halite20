@@ -30,10 +30,6 @@ def ship_tasks():  # update action
         # End-game return
         if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
-        RETURN_THRESHOLD = 5
-        # Temp
-        if ship.halite > RETURN_THRESHOLD * state['haliteMean'] + board.cells[ship.position].halite:  #TODO Optimize the return threshold
-            action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
         if ship in action:
             continue
 
@@ -45,10 +41,10 @@ def ship_tasks():  # update action
     targets = []
     for i in board.cells.values():  # Filter targets
         if i.shipyard != None and i.shipyard.player_id == state['me']:
-            for j in range(len(state['myShips'])):
+            for j in range(min(8,len(state['myShips']))):
                 targets.append(i)
             continue
-        if i.halite < state['haliteMean'] / 3 and i.ship == None:
+        if i.halite == 0  and i.ship == None:
             continue
         targets.append(i)
     rewards = np.zeros((len(shipsToAssign), len(targets)))
@@ -65,13 +61,21 @@ def ship_tasks():  # update action
     actions = list(action.values())
     actions.sort(reverse=True, key=lambda x: x[0])
     for act in actions:
-        act[1].next_action = a_move(act[1], act[2], state[act[1]]['blocked'])
-        # Ship convertion
-        sPos = act[1].position
-        if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
-            act[1].next_action = ShipAction.CONVERT
-    return
+        process_action(act)
 
+def process_action(act):
+    global action
+    if action[act[1]] == True:
+        return
+    action[act[1]] = True
+    # Processing
+    act[1].next_action = a_move(act[1], act[2], state[act[1]]['blocked'])
+    # Ship convertion
+    sPos = act[1].position
+    if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
+        act[1].next_action = ShipAction.CONVERT
+        
+    return act[1].next_action
 
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
@@ -109,7 +113,7 @@ def convert_tasks():
         action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    elif len(state['myShips']) >= len(currentShipyards) * 5 and len(state['myShipyards']) < 4:
+    elif len(state['myShips']) >= len(currentShipyards) * 5 + 6 and len(state['myShipyards']) < 4:
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
 

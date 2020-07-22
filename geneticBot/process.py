@@ -60,11 +60,6 @@ def encode():
     for ship in state['myShips']:
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
-
-def ship_value():
-    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step) * weights[4][0]
-    res += len(state['ships']) * weights[4][1]
-    return res
     
 def get_avoidance(s):
     threshold = s.halite

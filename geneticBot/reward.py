@@ -1,6 +1,6 @@
 # Key function
 # For a ship, return the inherent "value" of the ship to get to a target cell
-# This should take the form of a neural network
+
 def get_reward(ship,cell):
 
     # Don't be stupid
@@ -12,72 +12,58 @@ def get_reward(ship,cell):
     elif cell.ship is not None and cell.ship.player_id != state['me']:
         return attack_reward(ship,cell)
     elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
-        # return return_reward(ship,cell)
-        #TODO
-        return 0
+        return return_reward(ship,cell)
     return 0
 
 def mine_reward(ship,cell):
 
+    mineWeights = weights[1]
     sPos = ship.position
     cPos = cell.position
 
-    # Features
-        # Halite per turn - weight constant
-        # Control map 
-            # Positive
-            # Negative
-        # Halite spread
+    # Halite per turn
+    halitePerTurn = 0
+    if state['currentHalite'] > 1000: # Do we need some funds to do stuff?
+        # No
+        halitePerTurn = halite_per_turn(cell.halite,dist(sPos,cPos),0) 
+    else:
+        # Yes
+        halitePerTurn = halite_per_turn(cell.halite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
+    # Surrounding halite
+    spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
+    res = halitePerTurn + spreadGain
 
-        # As majority of features are shared, see process.py mine_value_map()
+    # Penalty 
+    if cell.ship != None and not cell.ship is ship:
+        res = res / 2
 
-    halitePerTurn = halite_per_turn(ship.halite,cell.halite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
-    return halitePerTurn + state['mineValueMap'][cPos.x][cPos.y]
+    return res
 
 def attack_reward(ship,cell):
 
+    attackWeights = weights[2]
     cPos = cell.position 
     sPos = ship.position
-
-    # Features
-        # One hot - is ship empty
-        # Distance from current ship
-        # Control map
-        # Halite spread on target ship
-
-    # Currently just a placeholder
-    return max(cell.halite,state['controlMap'][cPos.x][cPos.y]*100) / dist(ship.position,cell.position)**2 * weights[2][0]
+    d = dist(ship.position,cell.position)
+    if cell.ship.halite > ship.halite:
+        return (cell.halite + ship.halite) / d**2
+    if len(state['myShips']) > 10:
+        return state['controlMap'][cPos.x][cPos.y] * 100 / d**2
+    return 0
 
 def return_reward(ship,cell):
-    #TODO
+
+    returnWeights = weights[3]
+    sPos = ship.position
     cPos = cell.position
 
-    # Features
-        # Halite on ship
-        # Halite spread
-        # Halite
-        # Distance
-        # Ship creation value
-    # Currently just a placeholder
-    return (ship.halite - cell.halite) - weights[3][0] * state['haliteMean']
+    if sPos == cPos:
+        return 0
 
-# As this is a linear function, and most features are ship independant
-# This should speed things up
-def mine_value_map():
-    # The divisions are to lower the values to around 1. This is so we can utilize the 
-    # same step change while training
-    N = state['configuration'].size
-    halite = state['haliteMap'].flatten() / 500 
-    spread = state['haliteSpread'].flatten() / 2000
-    control = state['controlMap'].flatten() / 4
-    controlAlly = control.copy()
-    controlAlly[controlAlly<0] = 0
-    controlOpponent = control.copy()
-    controlOpponent[controlOpponent>0] = 0
-    tensorIn = np.array([halite,controlAlly,controlOpponent,spread]).T
-    tensorOut = tensorIn @ weights[1]
-    res = np.reshape(tensorOut,(N,N))
-    return res
+    if state['currentHalite'] > 1000:
+        return ship.halite / (dist(sPos,cPos)) * 0.1
+    else:
+        return ship.halite / (dist(sPos,cPos))
 
 # Returns the reward of converting a shipyard in the area.
 def shipyard_reward_map():
@@ -112,6 +98,10 @@ def shipyard_reward_map():
 
     return res
 
+def ship_value():
+    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step) * weights[4][0]
+    res += len(state['ships']) ** 1.5 * weights[4][1]
+    return res
 
 
         

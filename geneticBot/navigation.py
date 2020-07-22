@@ -58,18 +58,29 @@ def a_move(s : Ship, t : Point, inBlocked):
     nextMap = state['next']
     sPos = s.position
     blocked = inBlocked + nextMap
+    # Check if we are trying to attack
+    if state['board'].cells[t].ship != None:
+        target = state['board'].cells[t].ship
+        if target.player_id != state['me'] and target.halite == s.halite:
+            blocked[t.x][t.y] -= 1
+    elif state['board'].cells[t].shipyard != None and state['board'].cells[t].shipyard.player_id != state['me']:
+        blocked[t.x][t.y] -= 1
+    # Don't ram stuff thats not the target. Unless we have an excess of ships.
+    if len(state['myShips']) < 30:
+        blocked += np.where(state['enemyShipHalite'] == s.halite, 1, 0)
+
     blocked = np.where(blocked>0,1,0)
 
     #Stay still
-    if sPos == t:
+    if sPos == t or nextMap[t.x][t.y]:
         #Someone with higher priority needs position, must move. Or being attacked.
         if blocked[t.x][t.y]:
             for processPoint in get_adjacent(sPos):
                 if not blocked[processPoint.x][processPoint.y]:
                     nextMap[processPoint.x][processPoint.y] = 1
                     return direction_to(sPos,processPoint)
-            nextMap[sPos.x][sPos.y] = 1
-            return None
+            
+            return micro_run(s)
         else:
             nextMap[sPos.x][sPos.y] = 1
             return None
@@ -108,6 +119,8 @@ def a_move(s : Ship, t : Point, inBlocked):
                 nextMap[processPoint.x][processPoint.y] = 1
                 return direction_to(sPos,processPoint)
         nextMap[sPos.x][sPos.y] = 1
+        if blocked[sPos.x][sPos.y]:
+            return micro_run(s)
         return None
 
         # Path reconstruction
@@ -115,6 +128,57 @@ def a_move(s : Ship, t : Point, inBlocked):
         t = pred[t]
 
     desired = direction_to(sPos,t)
+    # Reduce collisions
+    if state['board'].cells[t].ship != None and state['board'].cells[t].ship.player_id == state['me']:
+        target = state['board'].cells[t].ship
+        if action[target] != True:
+            nextMap[t.x][t.y] = 1
+            result = process_action(action[target])
+            # Going there will kill it
+            if result == None:
+                desired = a_move(s,t,inBlocked)
+                nextMap[t.x][t.y] = 0
+                return desired
+
     nextMap[t.x][t.y] = 1
-    
     return desired
+
+# Ship might die, RUN!
+def micro_run(s):
+    sPos = s.position
+    print("Might die?",sPos)
+    nextMap = state['next']
+
+    if state[s]['blocked'][sPos.x][sPos.y]:
+        print("by enemy")
+        score = [0,0,0,0]
+        for i,pos in enumerate(get_adjacent(sPos)):
+            if nextMap[pos.x][pos.y]:
+                score[i] = -1
+            elif state['board'].cells[pos].ship != None and state['board'].cells[pos].ship.player_id != state['me']:
+                if state['board'].cells[pos].ship.halite <= s.halite:
+                    score[i] = 100000
+                else:
+                    score[i] += state['board'].cells[pos].ship.halite 
+            else:
+                score[i] = 5000
+
+            score[i] += state['controlMap'][pos.x][pos.y]
+
+        i, maximum = 0,0 
+        for j, thing in enumerate(score):
+            if thing > maximum:
+                i = j
+                maximum = thing
+        if maximum < 10:
+            return None
+        else:
+            return direction_to(sPos,get_adjacent(sPos)[i])
+    else:
+        print("by ally")
+        return None
+
+
+
+
+

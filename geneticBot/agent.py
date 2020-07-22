@@ -4,7 +4,7 @@
 @board_agent
 def agent(board):
 
-    #print("Turn =",board.step+1)
+    print("Turn =",board.step+1)
     # Init
     if board.step == 0:
         init(board)
@@ -17,6 +17,8 @@ def agent(board):
 
     # Ship
     ship_tasks()
+
+    print(state['shipValue'])
 
     # Spawn
     spawn_tasks()

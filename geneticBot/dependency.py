@@ -48,6 +48,3 @@ def update(board):
 
     # Calc processes
     encode()
-
-    # Reward processes
-    state['mineValueMap'] = mine_value_map()
