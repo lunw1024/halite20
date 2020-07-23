@@ -33,13 +33,13 @@ def direction_to(s: Point, t: Point) -> ShipAction:
 def dry_move(s: Point, d: ShipAction) -> Point:
     N = state['configuration'].size
     if d == ShipAction.NORTH:
-        return s + Point(0, 1) % N
+        return s.translate(Point(0, 1),N)
     elif d == ShipAction.SOUTH:
-        return s + Point(0, -1) % N
+        return s.translate(Point(0, -1),N)
     elif d == ShipAction.EAST:
-        return s + Point(1, 0) % N
+        return s.translate(Point(1, 0),N)
     elif d == ShipAction.WEST:
-        return s + Point(-1, 0) % N
+        return s.translate(Point(-1, 0),N)
     else:
         return s
     
@@ -79,8 +79,9 @@ def a_move(s : Ship, t : Point, inBlocked):
                 if not blocked[processPoint.x][processPoint.y]:
                     nextMap[processPoint.x][processPoint.y] = 1
                     return direction_to(sPos,processPoint)
-            
-            return micro_run(s)
+            target = micro_run(s)
+            nextMap[dry_move(sPos,target).x][dry_move(sPos,target).y] = 1
+            return target
         else:
             nextMap[sPos.x][sPos.y] = 1
             return None
@@ -118,9 +119,11 @@ def a_move(s : Ship, t : Point, inBlocked):
             if not blocked[processPoint.x][processPoint.y]:
                 nextMap[processPoint.x][processPoint.y] = 1
                 return direction_to(sPos,processPoint)
-        nextMap[sPos.x][sPos.y] = 1
         if blocked[sPos.x][sPos.y]:
-            return micro_run(s)
+            target = micro_run(s)
+            nextMap[dry_move(sPos,target).x][dry_move(sPos,target).y] = 1
+            return target
+        nextMap[sPos.x][sPos.y] = 1
         return None
 
         # Path reconstruction
@@ -136,6 +139,7 @@ def a_move(s : Ship, t : Point, inBlocked):
             result = process_action(action[target])
             # Going there will kill it
             if result == None:
+                print("Saving",t)
                 desired = a_move(s,t,inBlocked)
                 nextMap[t.x][t.y] = 0
                 return desired
@@ -151,6 +155,8 @@ def micro_run(s):
 
     if state[s]['blocked'][sPos.x][sPos.y]:
         print("by enemy")
+        if s.halite > 500:
+            return ShipAction.CONVERT
         score = [0,0,0,0]
         for i,pos in enumerate(get_adjacent(sPos)):
             if nextMap[pos.x][pos.y]:

@@ -30,6 +30,7 @@ def init(board):
     state['me'] = board.current_player_id
     state['playerNum'] = len(board.players)
     state['memory'] = {}
+
     pass
 
 # Run start of every turn
@@ -48,3 +49,8 @@ def update(board):
 
     # Calc processes
     encode()
+
+    # Farming
+    control_farm()
+    if len(farms) < 4:
+        build_farm()

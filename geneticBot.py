@@ -1,5 +1,5 @@
 weights='''1 -1 0.5 0.5
-0.01
+0.01 2.5
 1
 1
 1 -3'''
@@ -35,6 +35,7 @@ def init(board):
     state['me'] = board.current_player_id
     state['playerNum'] = len(board.players)
     state['memory'] = {}
+
     pass
 
 # Run start of every turn
@@ -53,6 +54,11 @@ def update(board):
 
     # Calc processes
     encode()
+
+    # Farming
+    control_farm()
+    if len(farms) < 4:
+        build_farm()
 # General random helper functions that are not strictly "process" or in "nav"
 
 # Map from 0 to 1
@@ -84,7 +90,7 @@ def halite_per_turn(deposit, shipTime, returnTime):
 # Core strategy
 
 action = {}  # ship -> (value,ship,target)
-
+farms = [] # list of cells to farm
 
 def ship_tasks():  # update action
     global action
@@ -95,7 +101,6 @@ def ship_tasks():  # update action
     shipsToAssign = []
 
     # Rule based: Flee, Return
-
     for ship in me.ships:
         # Flee
         for target in get_adjacent(ship.position):
@@ -110,6 +115,7 @@ def ship_tasks():  # update action
         # End-game return
         if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
+            
         if ship in action:
             continue
 
@@ -146,7 +152,7 @@ def ship_tasks():  # update action
 def process_action(act):
     global action
     if action[act[1]] == True:
-        return
+        return act[1].next_action
     action[act[1]] = True
     # Processing
     act[1].next_action = a_move(act[1], act[2], state[act[1]]['blocked'])
@@ -186,8 +192,12 @@ def convert_tasks():
     tx, ty = list(zip(t[0], t[1]))[0]
 
     # Calculate the reward for each cell
-
-    if len(currentShipyards) == 0:
+    if state['board'].step == 0:
+        # Build immediately
+        targetShipyards.append(state['board'].cells[state['myShips'][0].position])
+        action[state['myShips'][0]] = (math.inf, state['myShips'][0], state['myShips'][0].position)
+        state['currentHalite'] -= 500
+    elif len(currentShipyards) == 0:
         # Grab the closest ship to the target and build.
         closest = closest_ship(Point(tx, ty))
         action[closest] = (math.inf, closest, Point(tx, ty))
@@ -198,6 +208,29 @@ def convert_tasks():
         state['currentHalite'] -= 500
 
     state['closestShipyard'] = closest_shipyard(targetShipyards)
+
+def build_farm():
+    global farms
+    maxCell = None
+    v = 0
+
+    for cell in state['board'].cells.values():
+        if cell.position in farms:
+            continue
+        a = farm_value(cell)
+        if a > v:
+            maxCell = cell
+            v = a
+
+    if maxCell != None:
+        farms.append(maxCell.position)
+
+def control_farm():
+    global farms
+    for i,farm in enumerate(farms[:]):
+        if state['board'].cells[farm].halite < state['haliteMean'] / 1.5:
+            # Not worth it
+            farms.remove(farm)
 
 # General calculations whose values are expected to be used in multiple instances
 # Basically calc in botv1.0. 
@@ -340,13 +373,13 @@ def direction_to(s: Point, t: Point) -> ShipAction:
 def dry_move(s: Point, d: ShipAction) -> Point:
     N = state['configuration'].size
     if d == ShipAction.NORTH:
-        return s + Point(0, 1) % N
+        return s.translate(Point(0, 1),N)
     elif d == ShipAction.SOUTH:
-        return s + Point(0, -1) % N
+        return s.translate(Point(0, -1),N)
     elif d == ShipAction.EAST:
-        return s + Point(1, 0) % N
+        return s.translate(Point(1, 0),N)
     elif d == ShipAction.WEST:
-        return s + Point(-1, 0) % N
+        return s.translate(Point(-1, 0),N)
     else:
         return s
     
@@ -386,8 +419,9 @@ def a_move(s : Ship, t : Point, inBlocked):
                 if not blocked[processPoint.x][processPoint.y]:
                     nextMap[processPoint.x][processPoint.y] = 1
                     return direction_to(sPos,processPoint)
-            
-            return micro_run(s)
+            target = micro_run(s)
+            nextMap[dry_move(sPos,target).x][dry_move(sPos,target).y] = 1
+            return target
         else:
             nextMap[sPos.x][sPos.y] = 1
             return None
@@ -425,9 +459,11 @@ def a_move(s : Ship, t : Point, inBlocked):
             if not blocked[processPoint.x][processPoint.y]:
                 nextMap[processPoint.x][processPoint.y] = 1
                 return direction_to(sPos,processPoint)
-        nextMap[sPos.x][sPos.y] = 1
         if blocked[sPos.x][sPos.y]:
-            return micro_run(s)
+            target = micro_run(s)
+            nextMap[dry_move(sPos,target).x][dry_move(sPos,target).y] = 1
+            return target
+        nextMap[sPos.x][sPos.y] = 1
         return None
 
         # Path reconstruction
@@ -443,6 +479,7 @@ def a_move(s : Ship, t : Point, inBlocked):
             result = process_action(action[target])
             # Going there will kill it
             if result == None:
+                print("Saving",t)
                 desired = a_move(s,t,inBlocked)
                 nextMap[t.x][t.y] = 0
                 return desired
@@ -458,6 +495,8 @@ def micro_run(s):
 
     if state[s]['blocked'][sPos.x][sPos.y]:
         print("by enemy")
+        if s.halite > 500:
+            return ShipAction.CONVERT
         score = [0,0,0,0]
         for i,pos in enumerate(get_adjacent(sPos)):
             if nextMap[pos.x][pos.y]:
@@ -512,15 +551,25 @@ def mine_reward(ship,cell):
     mineWeights = weights[1]
     sPos = ship.position
     cPos = cell.position
+    cHalite = cell.halite
 
     # Halite per turn
     halitePerTurn = 0
+
+    # Farming!
+    if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)):
+        return -1
+ 
+    # Multiplier to current cell
+    if sPos == cPos and cHalite > state['haliteMean'] / 2:
+        cHalite = cHalite * mineWeights[1]
+
     if state['currentHalite'] > 1000: # Do we need some funds to do stuff?
         # No
-        halitePerTurn = halite_per_turn(cell.halite,dist(sPos,cPos),0) 
+        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),0) 
     else:
         # Yes
-        halitePerTurn = halite_per_turn(cell.halite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
+        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
     # Surrounding halite
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
     res = halitePerTurn + spreadGain
@@ -537,6 +586,12 @@ def attack_reward(ship,cell):
     cPos = cell.position 
     sPos = ship.position
     d = dist(ship.position,cell.position)
+    multiplier = 1
+     
+    # Defend the farm!
+    if cPos in farms:
+        return cell.halite - d
+
     if cell.ship.halite > ship.halite:
         return (cell.halite + ship.halite) / d**2
     if len(state['myShips']) > 10:
@@ -549,7 +604,7 @@ def return_reward(ship,cell):
     sPos = ship.position
     cPos = cell.position
 
-    if sPos == cPos:
+    if sPos == cPos :
         return 0
 
     if state['currentHalite'] > 1000:
@@ -595,6 +650,21 @@ def ship_value():
     res += len(state['ships']) ** 1.5 * weights[4][1]
     return res
 
+def farm_value(cell):
+    cPos = cell.position
+    if len(state['myShipyards']) == 0 or cell.halite == 0:
+        return 0
+
+    closest = state['closestShipyard'][cPos.x][cPos.y]
+    if dist(closest,cPos) <= 1 or dist(closest,cPos) > 4:
+        return 0
+
+    return (cell.halite**0.5) / dist(closest,cPos) ** 2
+
+
+        
+
+
 
         
 
@@ -617,8 +687,6 @@ def agent(board):
 
     # Ship
     ship_tasks()
-
-    print(state['shipValue'])
 
     # Spawn
     spawn_tasks()

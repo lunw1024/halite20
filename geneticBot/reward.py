@@ -20,15 +20,25 @@ def mine_reward(ship,cell):
     mineWeights = weights[1]
     sPos = ship.position
     cPos = cell.position
+    cHalite = cell.halite
 
     # Halite per turn
     halitePerTurn = 0
+
+    # Farming!
+    if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)):
+        return -1
+ 
+    # Multiplier to current cell
+    if sPos == cPos and cHalite > state['haliteMean'] / 2:
+        cHalite = cHalite * mineWeights[1]
+
     if state['currentHalite'] > 1000: # Do we need some funds to do stuff?
         # No
-        halitePerTurn = halite_per_turn(cell.halite,dist(sPos,cPos),0) 
+        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),0) 
     else:
         # Yes
-        halitePerTurn = halite_per_turn(cell.halite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
+        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
     # Surrounding halite
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
     res = halitePerTurn + spreadGain
@@ -45,6 +55,12 @@ def attack_reward(ship,cell):
     cPos = cell.position 
     sPos = ship.position
     d = dist(ship.position,cell.position)
+    multiplier = 1
+     
+    # Defend the farm!
+    if cPos in farms:
+        return cell.halite - d
+
     if cell.ship.halite > ship.halite:
         return (cell.halite + ship.halite) / d**2
     if len(state['myShips']) > 10:
@@ -57,7 +73,7 @@ def return_reward(ship,cell):
     sPos = ship.position
     cPos = cell.position
 
-    if sPos == cPos:
+    if sPos == cPos :
         return 0
 
     if state['currentHalite'] > 1000:
@@ -102,6 +118,21 @@ def ship_value():
     res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step) * weights[4][0]
     res += len(state['ships']) ** 1.5 * weights[4][1]
     return res
+
+def farm_value(cell):
+    cPos = cell.position
+    if len(state['myShipyards']) == 0 or cell.halite == 0:
+        return 0
+
+    closest = state['closestShipyard'][cPos.x][cPos.y]
+    if dist(closest,cPos) <= 1 or dist(closest,cPos) > 4:
+        return 0
+
+    return (cell.halite**0.5) / dist(closest,cPos) ** 2
+
+
+        
+
 
 
         

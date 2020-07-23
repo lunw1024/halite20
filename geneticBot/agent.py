@@ -18,7 +18,5 @@ def agent(board):
     # Ship
     ship_tasks()
 
-    print(state['shipValue'])
-
     # Spawn
     spawn_tasks()
