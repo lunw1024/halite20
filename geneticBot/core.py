@@ -85,12 +85,16 @@ def spawn_tasks():
             if state['shipValue'] > 500:
                 shipyard.next_action = ShipyardAction.SPAWN
                 state['currentHalite'] -= 500
-            elif shipyard.cell.ship != None and not shipyard.cell.ship.player_id == state['me']:
-                shipyard.next_action = ShipyardAction.SPAWN
-                state['currentHalite'] -= 500
             elif len(state['myShips']) <= 2:
                 shipyard.next_action = ShipyardAction.SPAWN
                 state['currentHalite'] -= 500
+            elif len(state['myShipyards']) == 1:
+                for pos in get_adjacent(shipyard.position):
+                    cell = state['board'].cells[pos]
+                    if cell.ship != None and cell.ship.player_id != state['me']:
+                        shipyard.next_action = ShipyardAction.SPAWN
+                        state['currentHalite'] -= 500
+                        return
 
 
 def convert_tasks():

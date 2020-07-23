@@ -51,6 +51,7 @@ def update(board):
     encode()
 
     # Farming
-    control_farm()
+    '''control_farm()
+    print(farms)
     if len(farms) < 4:
-        build_farm()
+        build_farm()'''
