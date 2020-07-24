@@ -11,6 +11,8 @@ from queue import PriorityQueue
 
 # Global constants
 
+    # Infinity value thats actually not infinity
+INF = 999999999999
     # All game state goes here - everything, even mundane
 state = {}
     # Bot training weights

@@ -27,13 +27,20 @@ def ship_tasks():  # update action
             continue # continue its current action
 
         # End-game return
-        if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
+        if board.step > state['configuration']['episodeSteps'] - cfg.size * 2 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
-            
+        # End game attack
+        if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0 and ship != me.ships[0]:
+            killTarget = state['killTarget']
+            if len(killTarget.shipyards) > 0:
+                target = closest_thing(ship.position,killTarget.shipyards)
+                action[ship] = (ship.halite, ship, target.position)
+            elif len(killTarget.ships) > 0:
+                target = closest_thing(ship.position,killTarget.ships)
+                action[ship] = (ship.halite, ship, target.position)
+
         if ship in action:
             continue
-
-        # TODO: Force attack
 
         shipsToAssign.append(ship)
 
@@ -44,7 +51,8 @@ def ship_tasks():  # update action
             for j in range(min(8,len(state['myShips']))):
                 targets.append(i)
             continue
-        if i.halite == 0  and i.ship == None:
+        if i.halite == 0  and i.ship == None and i.shipyard == None:
+            # Spots not very interesting
             continue
         targets.append(i)
     rewards = np.zeros((len(shipsToAssign), len(targets)))
@@ -85,7 +93,7 @@ def spawn_tasks():
             if state['shipValue'] > 500:
                 shipyard.next_action = ShipyardAction.SPAWN
                 state['currentHalite'] -= 500
-            elif len(state['myShips']) <= 2:
+            elif len(state['myShips']) < 1 and shipyard == shipyards[0]:
                 shipyard.next_action = ShipyardAction.SPAWN
                 state['currentHalite'] -= 500
             elif len(state['myShipyards']) == 1:

@@ -8,13 +8,17 @@ def normalize(v):
     return v / norm
 
 def closest_ship(t):
+    return closest_thing(t,state['myShips'])
+
+def closest_thing(t,arr):
     res = None
-    for ship in state['myShips']:
+    for thing in arr:
         if res == None:
-            res = ship
-        elif dist(t,res.position) > dist(t,ship.position):
-            res = ship
+            res = thing
+        elif dist(t,res.position) > dist(t,thing.position):
+            res = thing
     return res
+
 
 def halite_per_turn(deposit, shipTime, returnTime):
     travelTime = shipTime + returnTime

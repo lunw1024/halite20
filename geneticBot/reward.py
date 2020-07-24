@@ -13,6 +13,8 @@ def get_reward(ship,cell):
         return attack_reward(ship,cell)
     elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
         return return_reward(ship,cell)
+    elif cell.shipyard is not None and cell.shipyard.player_id != state['me']:
+        return attack_reward(ship,cell)
     return 0
 
 def mine_reward(ship,cell):
@@ -56,16 +58,39 @@ def attack_reward(ship,cell):
     sPos = ship.position
     d = dist(ship.position,cell.position)
     multiplier = 1
-     
+    
+    # Don't even bother
+    if dist(sPos,cPos) > 4:
+        return 0
+
     # Defend the farm!
     if cPos in farms:
         return cell.halite - d
 
-    if cell.ship.halite > ship.halite:
-        return (cell.halite + ship.halite) / d**2
-    if len(state['myShips']) > 10:
-        return state['controlMap'][cPos.x][cPos.y] * 100 / d**2
-    return 0
+    res = 0
+    # It's a ship!
+    if cell.ship != None:
+        if cell.ship.halite > ship.halite:
+            res = (cell.halite + ship.halite) / d**2
+        if len(state['myShips']) > 10:
+            res = state['controlMap'][cPos.x][cPos.y] * 100 / d**2
+    
+    # It's a shipyard!
+    elif len(state['myShips']) > 10:
+        if len(state['myShips']) > 15 and cell.shipyard.player == state['killTarget']:
+            # Is it viable to attack
+            viable = True
+            for pos in get_adjacent(cPos):
+                target = state['board'].cells[pos].ship
+                if target != None and target.player_id != state['me'] and target.halite <= ship.halite:
+                    viable = False
+                    break
+            if viable:
+                res = attackWeights[1] / d**2
+        
+        res = max(res,state['controlMap'][cPos.x][cPos.y] * 100 / d**2)
+
+    return res * attackWeights[0]
 
 def return_reward(ship,cell):
 

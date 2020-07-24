@@ -60,6 +60,8 @@ def encode():
     for ship in state['myShips']:
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
+    # Who we should attack
+    state['killTarget'] = get_target()
     
 def get_avoidance(s):
     threshold = s.halite
@@ -105,3 +107,18 @@ def control_map(ships,shipyards):
             res += np.roll(temp,-i,axis=1) * 0.5**i
         
         return res + shipyards
+
+def get_target():
+    board = state['board']
+    me = board.current_player
+    idx,v = 0, -math.inf
+    for i,opponent in enumerate(board.opponents):
+        value = 0
+        if opponent.halite-me.halite > 0:
+            value = -(opponent.halite-me.halite)
+        else:
+            value = (opponent.halite-me.halite) * 10
+        if value > v:
+            v = value
+            idx = i
+    return board.opponents[idx]

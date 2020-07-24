@@ -51,6 +51,13 @@ def get_adjacent(point):
         res.append(point.translate(Point(offX,offY),N))
     return res
 
+def safe_naive(s,t,blocked):
+    for direction in directions_to(s.position,t):
+        target = dry_move(s.position,direction)
+        if not blocked[target.x][target.y]:
+            return direction
+    return None
+
 # A* Movement from ship s to point t
 # See https://en.wikipedia.org/wiki/A*_search_algorithm
 def a_move(s : Ship, t : Point, inBlocked):
@@ -65,8 +72,8 @@ def a_move(s : Ship, t : Point, inBlocked):
             blocked[t.x][t.y] -= 1
     elif state['board'].cells[t].shipyard != None and state['board'].cells[t].shipyard.player_id != state['me']:
         blocked[t.x][t.y] -= 1
-    # Don't ram stuff thats not the target. Unless we have an excess of ships.
-    if len(state['myShips']) < 30:
+    # Don't ram stuff thats not the target. Unless we have an excess of ships. Or we are trying to murder a team.
+    if len(state['myShips']) < 30 and state['board'].step < state['configuration']['episodeSteps'] - state['configuration'].size * 1.5:
         blocked += np.where(state['enemyShipHalite'] == s.halite, 1, 0)
 
     blocked = np.where(blocked>0,1,0)
@@ -114,15 +121,27 @@ def a_move(s : Ship, t : Point, inBlocked):
             pred[processPoint] = currentPoint
 
     if not t in pred:
+
+        # Can go in general direction
+        res = safe_naive(s,t,blocked)
+        if res != None:
+            a = dry_move(s.position,res)
+            nextMap[a.x][a.y] = 1
+            return res
+
         #Random move
         for processPoint in get_adjacent(sPos):
             if not blocked[processPoint.x][processPoint.y]:
                 nextMap[processPoint.x][processPoint.y] = 1
                 return direction_to(sPos,processPoint)
+        
+        # Run
         if blocked[sPos.x][sPos.y]:
             target = micro_run(s)
             nextMap[dry_move(sPos,target).x][dry_move(sPos,target).y] = 1
             return target
+
+        # Safe?
         nextMap[sPos.x][sPos.y] = 1
         return None
 
