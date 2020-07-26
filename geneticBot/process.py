@@ -61,7 +61,8 @@ def encode():
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
     # Who we should attack
-    state['killTarget'] = get_target()
+    if len(state['board'].opponents) > 0:
+        state['killTarget'] = get_target()
     
 def get_avoidance(s):
     threshold = s.halite
@@ -117,7 +118,7 @@ def get_target():
         if opponent.halite-me.halite > 0:
             value = -(opponent.halite-me.halite)
         else:
-            value = (opponent.halite-me.halite) * 10
+            value = (opponent.halite-me.halite) * 5
         if value > v:
             v = value
             idx = i

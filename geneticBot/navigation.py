@@ -50,7 +50,7 @@ def get_adjacent(point):
     for offX, offY in ((0,1),(1,0),(0,-1),(-1,0)):
         res.append(point.translate(Point(offX,offY),N))
     return res
-
+    
 def safe_naive(s,t,blocked):
     for direction in directions_to(s.position,t):
         target = dry_move(s.position,direction)
@@ -78,102 +78,104 @@ def a_move(s : Ship, t : Point, inBlocked):
 
     blocked = np.where(blocked>0,1,0)
 
+    desired = None
+
     #Stay still
     if sPos == t or nextMap[t.x][t.y]:
+
         #Someone with higher priority needs position, must move. Or being attacked.
         if blocked[t.x][t.y]:
             for processPoint in get_adjacent(sPos):
                 if not blocked[processPoint.x][processPoint.y]:
                     nextMap[processPoint.x][processPoint.y] = 1
-                    return direction_to(sPos,processPoint)
-            target = micro_run(s)
-            nextMap[dry_move(sPos,target).x][dry_move(sPos,target).y] = 1
-            return target
+                    desired = direction_to(sPos,processPoint)
+                    t = processPoint
+            if desired == None:
+                target = micro_run(s)
+                t = dry_move(sPos,target)
+                desired = target
         else:
-            nextMap[sPos.x][sPos.y] = 1
-            return None
+            t = sPos
+            desired = None
+    else:
+        #A*
+        pred = {}
+        calcDist = {}
+        pq = PriorityQueue()
+        pqMap = {}
 
-    #A*
-    pred = {}
-    calcDist = {}
-    pq = PriorityQueue()
-    pqMap = {}
+        pqMap[dist(sPos,t)] = [sPos]
+        pq.put(dist(sPos,t))
+        pred[sPos] = sPos
+        calcDist[sPos] = dist(sPos,t)
 
-    pqMap[dist(sPos,t)] = [sPos]
-    pq.put(dist(sPos,t))
-    pred[sPos] = sPos
-    calcDist[sPos] = dist(sPos,t)
+            # Main
 
-        # Main
+        while not pq.empty():
+            if t in calcDist:
+                break
+            currentPoint = pqMap.get(pq.get()).pop()
+            for processPoint in get_adjacent(currentPoint):
+                if blocked[processPoint.x][processPoint.y] or processPoint in calcDist: 
+                    continue
+                calcDist[processPoint] = calcDist[currentPoint] + 1
+                priority =  calcDist[processPoint] + dist(processPoint,t)
+                pqMap[priority] = pqMap.get(priority,[])
+                pqMap[priority].append(processPoint)
+                pq.put(priority)
+                pred[processPoint] = currentPoint
 
-    while not pq.empty():
-        if t in calcDist:
-            break
-        currentPoint = pqMap.get(pq.get()).pop()
-        for processPoint in get_adjacent(currentPoint):
-            if blocked[processPoint.x][processPoint.y] or processPoint in calcDist: 
-                continue
-            calcDist[processPoint] = calcDist[currentPoint] + 1
-            priority =  calcDist[processPoint] + dist(processPoint,t)
-            pqMap[priority] = pqMap.get(priority,[])
-            pqMap[priority].append(processPoint)
-            pq.put(priority)
-            pred[processPoint] = currentPoint
+        if not t in pred:
 
-    if not t in pred:
+            # Can go in general direction
+            res = safe_naive(s,t,blocked)
+            if res != None:
+                t = dry_move(s.position,res)
+                desired = res
+            else:
+                #Random move
+                for processPoint in get_adjacent(sPos):
+                    if not blocked[processPoint.x][processPoint.y]:
+                        nextMap[processPoint.x][processPoint.y] = 1
+                        t = processPoint
+                        desired = direction_to(sPos,processPoint)
+                
+                # Run
+                if desired == None and blocked[sPos.x][sPos.y]:
+                    target = micro_run(s)
+                    t = dry_move(sPos,target)
+                    desired = target
+                elif not blocked[sPos.x][sPos.y]:
+                    t = sPos
+                    desired = None        
+        else:
+            # Path reconstruction
+            while pred[t] != sPos:
+                t = pred[t]
 
-        # Can go in general direction
-        res = safe_naive(s,t,blocked)
-        if res != None:
-            a = dry_move(s.position,res)
-            nextMap[a.x][a.y] = 1
-            return res
+            desired = direction_to(sPos,t)
 
-        #Random move
-        for processPoint in get_adjacent(sPos):
-            if not blocked[processPoint.x][processPoint.y]:
-                nextMap[processPoint.x][processPoint.y] = 1
-                return direction_to(sPos,processPoint)
-        
-        # Run
-        if blocked[sPos.x][sPos.y]:
-            target = micro_run(s)
-            nextMap[dry_move(sPos,target).x][dry_move(sPos,target).y] = 1
-            return target
-
-        # Safe?
-        nextMap[sPos.x][sPos.y] = 1
-        return None
-
-        # Path reconstruction
-    while pred[t] != sPos:
-        t = pred[t]
-
-    desired = direction_to(sPos,t)
     # Reduce collisions
-    if state['board'].cells[t].ship != None and state['board'].cells[t].ship.player_id == state['me']:
+    if desired != None and state['board'].cells[t].ship != None and state['board'].cells[t].ship.player_id == state['me']:
         target = state['board'].cells[t].ship
+        s.next_action = desired
         if action[target] != True:
             nextMap[t.x][t.y] = 1
             result = process_action(action[target])
             # Going there will kill it
             if result == None:
-                print("Saving",t)
                 desired = a_move(s,t,inBlocked)
                 nextMap[t.x][t.y] = 0
-                return desired
-
+                t = dry_move(sPos,desired)
     nextMap[t.x][t.y] = 1
     return desired
 
 # Ship might die, RUN!
 def micro_run(s):
     sPos = s.position
-    print("Might die?",sPos)
     nextMap = state['next']
 
     if state[s]['blocked'][sPos.x][sPos.y]:
-        print("by enemy")
         if s.halite > 500:
             return ShipAction.CONVERT
         score = [0,0,0,0]
@@ -200,7 +202,6 @@ def micro_run(s):
         else:
             return direction_to(sPos,get_adjacent(sPos)[i])
     else:
-        print("by ally")
         return None
 
 

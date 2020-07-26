@@ -7,7 +7,7 @@ def get_reward(ship,cell):
     if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
         return 0
     # Mining reward
-    elif (cell.ship is None or cell.ship.player_id == state['me']) and cell.shipyard is None:
+    elif (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
         return mine_reward(ship,cell)
     elif cell.ship is not None and cell.ship.player_id != state['me']:
         return attack_reward(ship,cell)
@@ -26,14 +26,19 @@ def mine_reward(ship,cell):
 
     # Halite per turn
     halitePerTurn = 0
-
-    # Farming!
-    if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)):
-        return -1
- 
-    # Multiplier to current cell
-    if sPos == cPos and cHalite > state['haliteMean'] / 2:
-        cHalite = cHalite * mineWeights[1]
+    
+    # Current cell
+    if sPos == cPos:
+        # Current cell multiplier
+        if cHalite > state['haliteMean'] / 2:
+            cHalite = cHalite * mineWeights[1]
+        # Farming!
+        if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
+            return 0
+        # Don't mine if enemy near
+        for pos in get_adjacent(sPos):
+            if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
+                return 0
 
     if state['currentHalite'] > 1000: # Do we need some funds to do stuff?
         # No
@@ -71,8 +76,8 @@ def attack_reward(ship,cell):
     # It's a ship!
     if cell.ship != None:
         if cell.ship.halite > ship.halite:
-            res = (cell.halite + ship.halite) / d**2
-        if len(state['myShips']) > 10:
+            res = max(cell.halite / d,state['controlMap'][cPos.x][cPos.y] * 100) / d**2
+        elif len(state['myShips']) > 10:
             res = state['controlMap'][cPos.x][cPos.y] * 100 / d**2
     
     # It's a shipyard!
@@ -134,14 +139,15 @@ def shipyard_reward_map():
 
     # Linear calculation
     # TODO: Improve by converting to a deep NN
-    tensorOut = tensorIn @ np.concatenate((np.array([1]),weights[0]))
+    tensorOut = tensorIn @ np.concatenate((np.array([1]),weights[0][:4]))
     res = np.reshape(tensorOut,(N,N))
 
     return res
 
 def ship_value():
     res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step) * weights[4][0]
-    res += len(state['ships']) ** 1.5 * weights[4][1]
+    res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
+    res += len(state['myShips'])  ** 1.5 * weights[4][2]
     return res
 
 def farm_value(cell):

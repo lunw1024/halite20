@@ -51,9 +51,3 @@ def update(board):
 
     # Calc processes
     encode()
-
-    # Farming
-    '''control_farm()
-    print(farms)
-    if len(farms) < 4:
-        build_farm()'''

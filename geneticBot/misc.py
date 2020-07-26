@@ -19,6 +19,14 @@ def closest_thing(t,arr):
             res = thing
     return res
 
+def closest_thing_position(t,arr):
+    res = None
+    for thing in arr:
+        if res == None:
+            res = thing
+        elif dist(t,res) > dist(t,thing):
+            res = thing
+    return res
 
 def halite_per_turn(deposit, shipTime, returnTime):
     travelTime = shipTime + returnTime
