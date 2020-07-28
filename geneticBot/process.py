@@ -24,8 +24,11 @@ def encode():
         state['haliteSpread'] += np.roll(temp,-i,axis=1) *  0.5**i
     # Ships
     state['shipMap'] = np.zeros((state['playerNum'], N, N))
+    state['enemyShips'] = []
     for ship in state['ships']:
         state['shipMap'][ship.player_id][ship.position.x][ship.position.y] = 1
+        if ship.player_id != state['me']:
+            state['enemyShips'].append(ship)
     # Shipyards
     state['shipyardMap'] = np.zeros((state['playerNum'], N, N))
     for shipyard in state['shipyards']:
@@ -74,7 +77,7 @@ def get_avoidance(s):
     enemyBlock = enemyBlock + np.roll(temp,1,axis=1)
     enemyBlock = enemyBlock + np.roll(temp,-1,axis=1)
 
-    enemyBlock = enemyBlock + state['enemyShipyard'] - state['allyShipyard']*5
+    enemyBlock = enemyBlock + state['enemyShipyard']
 
     blocked = enemyBlock
     blocked = np.where(blocked>0,1,0)

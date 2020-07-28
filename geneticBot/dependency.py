@@ -15,9 +15,15 @@ from queue import PriorityQueue
 INF = 999999999999
     # All game state goes here - everything, even mundane
 state = {}
+
     # Bot training weights
         # 0 - shipyard reward
         # 1 - mine reward
+        # 2 - attack weights
+        # 3 - return weights
+        # 4 - spawn weights
+        # 5 - guard weights
+    
 temp = []
 weights = weights.split('\n')
 for line in weights:

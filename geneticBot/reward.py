@@ -1,22 +1,46 @@
 # Key function
 # For a ship, return the inherent "value" of the ship to get to a target cell
 
-def get_reward(ship,cell):
-
+def get_reward(ship,target):
+    
+    cell = target[0]
+    res = 0
     # Don't be stupid
     if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
-        return 0
-    # Mining reward
-    elif (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
-        return mine_reward(ship,cell)
-    elif cell.ship is not None and cell.ship.player_id != state['me']:
-        return attack_reward(ship,cell)
-    elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
-        return return_reward(ship,cell)
-    elif cell.shipyard is not None and cell.shipyard.player_id != state['me']:
-        return attack_reward(ship,cell)
-    return 0
+        res = 0
+    elif target[1] == 'cell':
+        # Mining reward
+        if (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
+            res = mine_reward(ship,cell)
+        elif cell.ship is not None and cell.ship.player_id != state['me']:
+            res = attack_reward(ship,cell)
+        elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
+            res = return_reward(ship,cell)
+        elif cell.shipyard is not None and cell.shipyard.player_id != state['me']:
+            res = attack_reward(ship,cell)
+    elif target[1] == 'guard':
+        res = guard_reward(ship,cell)
+    return res
 
+def guard_reward(ship,cell):
+    cPos = cell.position
+    sPos = ship.position
+    guardWeights = weights[5]
+    if len(state['enemyShips']) == 0:
+        return 0
+    closestEnemy = closest_thing(ship.position,state['enemyShips'])
+    if dist(sPos,cPos) > dist(closestEnemy.position,cPos):
+        return 0
+    elif ship.halite != 0 and dist(sPos,cPos) >= dist(closestEnemy.position,cPos):
+        return 0
+
+    # Check if we want to build
+    if cell.shipyard == max(state['myShipyards'],key=lambda shipyard: state['haliteSpread'][shipyard.position.x][shipyard.position.y]):
+        if state['currentHalite'] >= 500 and state['shipValue'] > 500:
+            return 0
+    
+    return guardWeights[0] / (dist(closestEnemy.position,cPos) * (dist(sPos,cPos)+1))
+ 
 def mine_reward(ship,cell):
 
     mineWeights = weights[1]
@@ -30,7 +54,7 @@ def mine_reward(ship,cell):
     # Current cell
     if sPos == cPos:
         # Current cell multiplier
-        if cHalite > state['haliteMean'] / 2:
+        if cHalite > state['haliteMean'] / 2 and ship.halite > 0:
             cHalite = cHalite * mineWeights[1]
         # Farming!
         if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
@@ -39,13 +63,14 @@ def mine_reward(ship,cell):
         for pos in get_adjacent(sPos):
             if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
                 return 0
-
+    '''
     if state['currentHalite'] > 1000: # Do we need some funds to do stuff?
         # No
         halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),0) 
     else:
         # Yes
-        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
+        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))'''
+    halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y])) 
     # Surrounding halite
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
     res = halitePerTurn + spreadGain
@@ -53,7 +78,6 @@ def mine_reward(ship,cell):
     # Penalty 
     if cell.ship != None and not cell.ship is ship:
         res = res / 2
-
     return res
 
 def attack_reward(ship,cell):
@@ -79,6 +103,8 @@ def attack_reward(ship,cell):
             res = max(cell.halite / d,state['controlMap'][cPos.x][cPos.y] * 100) / d**2
         elif len(state['myShips']) > 10:
             res = state['controlMap'][cPos.x][cPos.y] * 100 / d**2
+        if ship.halite != 0:
+            res = res / 3
     
     # It's a shipyard!
     elif len(state['myShips']) > 10:
@@ -105,13 +131,15 @@ def return_reward(ship,cell):
 
     if sPos == cPos :
         return 0
-
+    res = 0
     if state['currentHalite'] > 1000:
-        return ship.halite / (dist(sPos,cPos)) * 0.1
+        res = ship.halite / (dist(sPos,cPos)) * returnWeights[0]
     else:
-        return ship.halite / (dist(sPos,cPos))
+        res = ship.halite / (dist(sPos,cPos))
+     
+    res = res * returnWeights[1]
+    return res 
 
-# Returns the reward of converting a shipyard in the area.
 def shipyard_reward_map():
 
     N = state['configuration'].size
@@ -145,7 +173,7 @@ def shipyard_reward_map():
     return res
 
 def ship_value():
-    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 10 - state['board'].step) * weights[4][0]
+    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 20 - state['board'].step) * weights[4][0]
     res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
     res += len(state['myShips'])  ** 1.5 * weights[4][2]
     return res

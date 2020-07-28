@@ -51,25 +51,31 @@ def ship_tasks():  # update action
         shipsToAssign.append(ship)
 
     # Reward based: Attack, Mine
-    targets = []
+    targets = [] # (cell, type)
     for i in board.cells.values():  # Filter targets
         if i.shipyard != None and i.shipyard.player_id == state['me']:
-            for j in range(min(8,len(state['myShips']))):
-                targets.append(i)
+            targets.append((i,'guard'))
+            for j in range(min(6,len(state['myShips']))):
+                targets.append((i,'cell'))
             continue
         if i.halite == 0  and i.ship == None and i.shipyard == None:
             # Spots not very interesting
             continue
-        targets.append(i)
+        targets.append((i,'cell'))
+
     rewards = np.zeros((len(shipsToAssign), len(targets)))
 
     for i, ship in enumerate(shipsToAssign):
-        for j, cell in enumerate(targets):
-            rewards[i, j] = get_reward(ship, cell)
-
+        for j, target in enumerate(targets):
+            rewards[i, j] = get_reward(ship, target)
+            
     rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True)  # rows[i] -> cols[i]
     for r, c in zip(rows, cols):
-        action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c].position)
+        task = targets[c]
+        if task[1] == 'cell':
+            action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
+        elif task[1] == 'guard':
+            action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
 
     # Process actions
     actions = list(action.values())
@@ -95,8 +101,8 @@ def spawn_tasks():
     shipyards.sort(reverse=True, key=lambda shipyard: state['haliteSpread'][shipyard.position.x][shipyard.position.y])
 
     for shipyard in shipyards:
-        if state['currentHalite'] > 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
-            if state['shipValue'] > 500:
+        if state['currentHalite'] >= 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
+            if state['shipValue'] >= 500:
                 shipyard.next_action = ShipyardAction.SPAWN
                 state['currentHalite'] -= 500
             elif len(state['myShips']) < 1 and shipyard == shipyards[0]:
@@ -109,7 +115,6 @@ def spawn_tasks():
                         shipyard.next_action = ShipyardAction.SPAWN
                         state['currentHalite'] -= 500
                         return
-
 
 def convert_tasks():
     global action
@@ -134,7 +139,7 @@ def convert_tasks():
         action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    elif len(state['myShips']) >= len(currentShipyards) * 5 + 6 and len(state['myShipyards']) < 4 and state['haliteSpread'][tx][ty] > weights[0][4]:
+    elif len(state['myShips']) >= len(currentShipyards) * 6 + 4 and len(state['myShipyards']) < 4 and state['haliteSpread'][tx][ty] > weights[0][4]:
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
 
