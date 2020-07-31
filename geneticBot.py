@@ -1,5 +1,5 @@
-weights='''2.0 -0.8236757404998933 0.8020703007978108 0.80062471268605204 450
-0.03212479148393029 2.5914597642192163
+weights='''1 500 0.8 0.6 0.12 0
+0.03212479148393029 2.5914597642192163 0.5
 0.5 200.02848810312122
 0.1 1.0
 0.9403425380141911 -3.1819320805078153 -3
@@ -139,7 +139,10 @@ def ship_tasks():  # update action
         if board.step > state['configuration']['episodeSteps'] - cfg.size * 2 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
         # End game attack
-        if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0 and ship != me.ships[0]:
+        if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0:
+            if len(state['myShipyards']) > 0 and ship == closest_thing(state['myShipyards'][0].position,state['myShips']):
+                action[ship] = (0,ship,state['myShipyards'][0].position)
+                continue
             killTarget = state['killTarget']
             if len(killTarget.shipyards) > 0:
                 target = closest_thing(ship.position,killTarget.shipyards)
@@ -224,12 +227,20 @@ def convert_tasks():
 
     # Add convertion tasks
 
-    rewardMap = shipyard_reward_map()  # Best area to build a shipyard
     currentShipyards = state['myShipyards']  # Shipyards "existing"
     targetShipyards = currentShipyards[:]
 
-    t = np.where(rewardMap == np.amax(rewardMap))
-    tx, ty = list(zip(t[0], t[1]))[0]
+    # Maximum cell
+    v = shipyard_value(state['board'].cells[Point(0,0)])
+    t = state['board'].cells[Point(0,0)]
+    for cell in state['board'].cells.values():
+        a = shipyard_value(cell)
+        if v < a:
+            v = a
+            t = cell
+    #print("Shipyard Value",v)
+    #print("Ship value", state['shipValue'])
+    tx, ty = t.position.x,t.position.y
     # Calculate the reward for each cell
     if state['board'].step == 0:
         # Build immediately
@@ -242,7 +253,7 @@ def convert_tasks():
         action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    elif len(state['myShips']) >= len(currentShipyards) * 6 + 4 and len(state['myShipyards']) < 4 and state['haliteSpread'][tx][ty] > weights[0][4]:
+    elif v > 500 and v > state['shipValue']:
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
 
@@ -302,8 +313,11 @@ def encode():
             state['enemyShips'].append(ship)
     # Shipyards
     state['shipyardMap'] = np.zeros((state['playerNum'], N, N))
+    state['enemyShipyards'] = []
     for shipyard in state['shipyards']:
         state['shipyardMap'][shipyard.player_id][shipyard.position.x][shipyard.position.y] = 1
+        if shipyard.player_id != state['me']:
+            state['enemyShipyards'].append(shipyard)
     # Total Halite
     state['haliteTotal'] = np.sum(state['haliteMap'])
     # Mean Halite 
@@ -366,7 +380,6 @@ def closest_shipyard(shipyards):
                     res[x][y] = shipyard.position
     return res
     
-
 def control_map(ships,shipyards):
         
         ITERATIONS = 3
@@ -665,7 +678,7 @@ def mine_reward(ship,cell):
     # Current cell
     if sPos == cPos:
         # Current cell multiplier
-        if cHalite > state['haliteMean'] / 2 and ship.halite > 0:
+        if cHalite > state['haliteMean'] * mineWeights[2] and ship.halite > 0:
             cHalite = cHalite * mineWeights[1]
         # Farming!
         if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
@@ -674,13 +687,21 @@ def mine_reward(ship,cell):
         for pos in get_adjacent(sPos):
             if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
                 return 0
+    
+    # Nearby 
+    if cPos in get_adjacent(sPos) and state['controlMap'][cPos.x][cPos.y] < 0.5:
+        # Try to reduce collision num
+        for pos in get_adjacent(cPos):
+            if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
+                return 0
     '''
     if state['currentHalite'] > 1000: # Do we need some funds to do stuff?
         # No
         halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),0) 
     else:
         # Yes
-        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))'''
+        halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
+    '''
     halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y])) 
     # Surrounding halite
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
@@ -689,6 +710,7 @@ def mine_reward(ship,cell):
     # Penalty 
     if cell.ship != None and not cell.ship is ship:
         res = res / 2
+        
     return res
 
 def attack_reward(ship,cell):
@@ -706,6 +728,13 @@ def attack_reward(ship,cell):
     # Defend the farm!
     if cPos in farms:
         return cell.halite - d
+
+    # Nearby 
+    if cPos in get_adjacent(sPos) and state['controlMap'][cPos.x][cPos.y] < 0.5:
+        # Try to reduce collision num
+        for pos in get_adjacent(cPos):
+            if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
+                return 0
 
     res = 0
     # It's a ship!
@@ -751,40 +780,44 @@ def return_reward(ship,cell):
     res = res * returnWeights[1]
     return res 
 
-def shipyard_reward_map():
+def shipyard_value(cell):
+    # Features
+    shipyardWeights = weights[0]
+    cPos = cell.position
 
-    N = state['configuration'].size
+    nearestShipyard = closest_thing(cPos,state['shipyards'])
+    nearestShipyardDistance = 1
+    if nearestShipyard != None:
+        nearestShipyardDistance = dist(nearestShipyard.position,cPos)
+    negativeControl = min(0,state['controlMap'][cPos.x][cPos.y])
+    if len(state['myShips']) > 0:
+        negativeControl -= 0.5 ** dist(closest_thing(cPos,state['myShips']).position,cPos)
+    haliteSpread = state['haliteSpread'][cPos.x][cPos.y] - state['haliteMap'][cPos.x][cPos.y]
+    shipShipyardRatio = len(state['myShips']) / max(1,len(state['myShipyards']))
 
-    closestShipyard = closestShipyard = np.zeros((N,N))
-    if len(state['myShipyards']) != 0:
-        closestShipyardPosition = state['closestShipyard']
-        for x in range(N):
-            for y in range(N):
-                closestShipyard[x][y] = dist(Point(x,y),closestShipyardPosition[x][y])
+    # Hard limit on range and halite spread
+    if nearestShipyardDistance <= 5 or haliteSpread <= 200:
+        return 0
 
-    # As we are trying to find the "best" relative, normalizing each with respect 
-    # To the maximum element should suffice. 
+    # Base halite multiplier
+    res = haliteSpread * shipyardWeights[0]
 
-    closestShipyard = normalize(closestShipyard.flatten())
-    haliteSpread = normalize(state['haliteSpread'].flatten())
-    halite = normalize(state['haliteMap'].flatten())
-    control = normalize(state['controlMap'].flatten())
-    controlAlly = control.copy()
-    controlAlly[controlAlly<0] = 0
-    controlOpponent = control.copy()
-    controlOpponent[controlOpponent>0] = 0
+    # Negative control
+    res += negativeControl * shipyardWeights[1]
 
-    tensorIn = np.array([closestShipyard,haliteSpread,halite,controlOpponent,controlAlly]).T
+    # Nearest shipyard
+    res = res * nearestShipyardDistance ** shipyardWeights[2]
 
-    # Linear calculation
-    # TODO: Improve by converting to a deep NN
-    tensorOut = tensorIn @ np.concatenate((np.array([1]),weights[0][:4]))
-    res = np.reshape(tensorOut,(N,N))
+    # Ship shipyard ratio multiplier
+    res = res * shipShipyardRatio ** shipyardWeights[3]
+
+    # Final multiplier and bias
+    res = res * shipyardWeights[4] + shipyardWeights[5]
 
     return res
 
 def ship_value():
-    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 20 - state['board'].step) * weights[4][0]
+    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
     res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
     res += len(state['myShips'])  ** 1.5 * weights[4][2]
     return res
@@ -813,6 +846,7 @@ def farm_value(cell):
 @board_agent
 def agent(board):
 
+    print("Turn =",board.step+1)
     # Init
     if board.step == 0:
         init(board)

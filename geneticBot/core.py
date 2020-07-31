@@ -36,7 +36,10 @@ def ship_tasks():  # update action
         if board.step > state['configuration']['episodeSteps'] - cfg.size * 2 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
         # End game attack
-        if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0 and ship != me.ships[0]:
+        if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0:
+            if len(state['myShipyards']) > 0 and ship == closest_thing(state['myShipyards'][0].position,state['myShips']):
+                action[ship] = (0,ship,state['myShipyards'][0].position)
+                continue
             killTarget = state['killTarget']
             if len(killTarget.shipyards) > 0:
                 target = closest_thing(ship.position,killTarget.shipyards)
@@ -121,12 +124,20 @@ def convert_tasks():
 
     # Add convertion tasks
 
-    rewardMap = shipyard_reward_map()  # Best area to build a shipyard
     currentShipyards = state['myShipyards']  # Shipyards "existing"
     targetShipyards = currentShipyards[:]
 
-    t = np.where(rewardMap == np.amax(rewardMap))
-    tx, ty = list(zip(t[0], t[1]))[0]
+    # Maximum cell
+    v = shipyard_value(state['board'].cells[Point(0,0)])
+    t = state['board'].cells[Point(0,0)]
+    for cell in state['board'].cells.values():
+        a = shipyard_value(cell)
+        if v < a:
+            v = a
+            t = cell
+    #print("Shipyard Value",v)
+    #print("Ship value", state['shipValue'])
+    tx, ty = t.position.x,t.position.y
     # Calculate the reward for each cell
     if state['board'].step == 0:
         # Build immediately
@@ -139,7 +150,7 @@ def convert_tasks():
         action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    elif len(state['myShips']) >= len(currentShipyards) * 6 + 4 and len(state['myShipyards']) < 4 and state['haliteSpread'][tx][ty] > weights[0][4]:
+    elif v > 500 and v > state['shipValue']:
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
 

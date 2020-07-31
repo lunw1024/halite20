@@ -31,8 +31,11 @@ def encode():
             state['enemyShips'].append(ship)
     # Shipyards
     state['shipyardMap'] = np.zeros((state['playerNum'], N, N))
+    state['enemyShipyards'] = []
     for shipyard in state['shipyards']:
         state['shipyardMap'][shipyard.player_id][shipyard.position.x][shipyard.position.y] = 1
+        if shipyard.player_id != state['me']:
+            state['enemyShipyards'].append(shipyard)
     # Total Halite
     state['haliteTotal'] = np.sum(state['haliteMap'])
     # Mean Halite 
@@ -95,7 +98,6 @@ def closest_shipyard(shipyards):
                     res[x][y] = shipyard.position
     return res
     
-
 def control_map(ships,shipyards):
         
         ITERATIONS = 3
