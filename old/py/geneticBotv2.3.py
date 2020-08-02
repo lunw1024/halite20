@@ -1,10 +1,9 @@
 weights='''0.9790460159455175 521.2407434909387 0.7923793908718682 0.7465819541587124 0.15346940177639612 -1.544244770235407
-0.02812899270203704 2.446412587257225 0.47149352967640235 12 20
+0.02812899270203704 2.446412587257225 0.47149352967640235
 0.0934167398237842 229.07285374558384
 0.32917669267944993 0.12670831197102922
 1.0216033904875512 -3.222779158469551 -2.684281446031774
-122.15873770334022
-0.2'''
+122.15873770334022'''
 # Contains all dependencies used in bot
 # First file loaded
 
@@ -131,7 +130,7 @@ def ship_tasks():  # update action
             if board.cells[target].ship != None:
                 targetShip = board.cells[target].ship
                 if targetShip.player.id != state['me'] and targetShip.halite < ship.halite:
-                    action[ship] = (INF*2+ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
+                    action[ship] = (INF*2, ship, state['closestShipyard'][ship.position.x][ship.position.y])
 
         if ship in action:
             continue # continue its current action
@@ -165,7 +164,7 @@ def ship_tasks():  # update action
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
             continue
-        if i.halite < 20 and i.ship == None and i.shipyard == None:
+        if i.halite == 0  and i.ship == None and i.shipyard == None:
             # Spots not very interesting
             continue
         targets.append((i,'cell'))
@@ -196,7 +195,7 @@ def process_action(act):
         return act[1].next_action
     action[act[1]] = True
     # Processing
-    act[1].next_action = d_move(act[1], act[2], state[act[1]]['blocked'])
+    act[1].next_action = a_move(act[1], act[2], state[act[1]]['blocked'])
     # Ship convertion
     sPos = act[1].position
     if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
@@ -249,14 +248,9 @@ def convert_tasks():
         action[state['myShips'][0]] = (math.inf, state['myShips'][0], state['myShips'][0].position)
         state['currentHalite'] -= 500
     elif len(currentShipyards) == 0:
-        # Grab the closest possible ship to the target and build.
-        possibleShips = []
-        for ship in state['myShips']:
-            if ship.halite + state['currentHalite'] >= 500:
-                possibleShips.append(ship)
-        closest = closest_thing(Point(tx, ty),possibleShips)
-        if closest != None:
-            action[closest] = (math.inf, closest, Point(tx, ty))
+        # Grab the closest ship to the target and build.
+        closest = closest_ship(Point(tx, ty))
+        action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
     elif v > 500 and v > state['shipValue']:
@@ -344,7 +338,6 @@ def encode():
     state['closestShipyard'] = closest_shipyard(state['myShipyards'])
     # Control map
     state['controlMap'] = control_map(state['ally']-state['enemy'],state['allyShipyard']-state['enemyShipyard'])
-    state['negativeControlMap'] = control_map(-state['enemy'],-state['enemyShipyard'])
     #Enemy ship labeled by halite. If none, infinity
     state['enemyShipHalite'] = np.zeros((N, N))
     state['enemyShipHalite'] += np.Infinity
@@ -355,7 +348,7 @@ def encode():
     for ship in state['myShips']:
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
-        state[ship]['danger'] = get_danger(ship.halite)
+        state[ship]['danger'] = get_danger(ship)
     # Who we should attack
     if len(state['board'].opponents) > 0:
         state['killTarget'] = get_target()
@@ -377,7 +370,7 @@ def get_avoidance(s):
     return blocked
 
 def get_danger(s):
-    threshold = s
+    threshold = s.halite
     temp = np.where(state['enemyShipHalite'] < threshold, 1, 0)
     dangerMap = np.zeros((temp.shape))
     for i in range(1,4):
@@ -463,6 +456,7 @@ def direction_to(s: Point, t: Point) -> ShipAction:
     candidate = directions_to(s, t)
     return random.choice(candidate) if len(candidate) > 0 else None
 
+
 # Returns the "next" point of a ship at point s with shipAction d
 def dry_move(s: Point, d: ShipAction) -> Point:
     N = state['configuration'].size
@@ -492,16 +486,9 @@ def safe_naive(s,t,blocked):
             return direction
     return None
 
-def move_cost(s : Ship, t : Point):
-    navigationWeights = weights[5]
-    cost = state[s]['danger'][t.x][t.y] * navigationWeights[0]
-    for pos in get_adjacent(t):
-        if state['enemyShipHalite'][pos.x][pos.y] == s.halite:
-            cost += navigationWeights[0]
-    return cost
-
-# Dijkstra's movement
-def d_move(s : Ship, t : Point, inBlocked):
+# A* Movement from ship s to point t
+# See https://en.wikipedia.org/wiki/A*_search_algorithm
+def a_move(s : Ship, t : Point, inBlocked):
 
     nextMap = state['next']
     sPos = s.position
@@ -539,7 +526,7 @@ def d_move(s : Ship, t : Point, inBlocked):
             t = sPos
             desired = None
     else:
-        #Dijkstra
+        #A*
         pred = {}
         calcDist = {}
         pq = PriorityQueue()
@@ -559,8 +546,8 @@ def d_move(s : Ship, t : Point, inBlocked):
             for processPoint in get_adjacent(currentPoint):
                 if blocked[processPoint.x][processPoint.y] or processPoint in calcDist: 
                     continue
-                calcDist[processPoint] = calcDist[currentPoint] + 1 + move_cost(s,processPoint)
-                priority = calcDist[processPoint]
+                calcDist[processPoint] = calcDist[currentPoint] + 1
+                priority =  calcDist[processPoint] + dist(processPoint,t)
                 pqMap[priority] = pqMap.get(priority,[])
                 pqMap[priority].append(processPoint)
                 pq.put(priority)
@@ -605,7 +592,7 @@ def d_move(s : Ship, t : Point, inBlocked):
             result = process_action(action[target])
             # Going there will kill it
             if result == None:
-                desired = d_move(s,t,inBlocked)
+                desired = a_move(s,t,inBlocked)
                 nextMap[t.x][t.y] = 0
                 t = dry_move(sPos,desired)
     nextMap[t.x][t.y] = 1
@@ -708,9 +695,6 @@ def mine_reward(ship,cell):
         # Current cell multiplier
         if cHalite > state['haliteMean'] * mineWeights[2] and ship.halite > 0:
             cHalite = cHalite * mineWeights[1]
-        # Don't mine if it will put ship in danger
-        if get_danger(ship.halite+cell.halite*0.25)[cPos.x][cPos.y] > 1:
-            return 0
         # Farming!
         if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
             return 0
@@ -741,10 +725,6 @@ def mine_reward(ship,cell):
     # Penalty 
     if cell.ship != None and not cell.ship is ship:
         res = res / 2
-
-    # Danger penalty
-    if state[ship]['danger'][cPos.x][cPos.y] > 1:
-        res -= mineWeights[3] ** state[ship]['danger'][cPos.x][cPos.y]
         
     return res
 
@@ -812,7 +792,7 @@ def return_reward(ship,cell):
         res = ship.halite / (dist(sPos,cPos)) * returnWeights[0]
     else:
         res = ship.halite / (dist(sPos,cPos))
-    
+     
     res = res * returnWeights[1]
     return res 
 
@@ -827,7 +807,7 @@ def shipyard_value(cell):
         nearestShipyardDistance = dist(nearestShipyard.position,cPos)
     negativeControl = min(0,state['controlMap'][cPos.x][cPos.y])
     if len(state['myShips']) > 0:
-        negativeControl = max(negativeControl-0.5 ** dist(closest_thing(cPos,state['myShips']).position,cPos),state['negativeControlMap'][cPos.x][cPos.y])
+        negativeControl -= 0.5 ** dist(closest_thing(cPos,state['myShips']).position,cPos)
     haliteSpread = state['haliteSpread'][cPos.x][cPos.y] - state['haliteMap'][cPos.x][cPos.y]
     shipShipyardRatio = len(state['myShips']) / max(1,len(state['myShipyards']))
 
@@ -882,7 +862,6 @@ def farm_value(cell):
 @board_agent
 def agent(board):
 
-    print("Turn =",board.step+1)
     # Init
     if board.step == 0:
         init(board)

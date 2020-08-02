@@ -27,7 +27,7 @@ def ship_tasks():  # update action
             if board.cells[target].ship != None:
                 targetShip = board.cells[target].ship
                 if targetShip.player.id != state['me'] and targetShip.halite < ship.halite:
-                    action[ship] = (INF*2, ship, state['closestShipyard'][ship.position.x][ship.position.y])
+                    action[ship] = (INF*2+ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
 
         if ship in action:
             continue # continue its current action
@@ -61,7 +61,7 @@ def ship_tasks():  # update action
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
             continue
-        if i.halite == 0  and i.ship == None and i.shipyard == None:
+        if i.halite < 20 and i.ship == None and i.shipyard == None:
             # Spots not very interesting
             continue
         targets.append((i,'cell'))
@@ -92,7 +92,7 @@ def process_action(act):
         return act[1].next_action
     action[act[1]] = True
     # Processing
-    act[1].next_action = a_move(act[1], act[2], state[act[1]]['blocked'])
+    act[1].next_action = d_move(act[1], act[2], state[act[1]]['blocked'])
     # Ship convertion
     sPos = act[1].position
     if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
@@ -145,9 +145,14 @@ def convert_tasks():
         action[state['myShips'][0]] = (math.inf, state['myShips'][0], state['myShips'][0].position)
         state['currentHalite'] -= 500
     elif len(currentShipyards) == 0:
-        # Grab the closest ship to the target and build.
-        closest = closest_ship(Point(tx, ty))
-        action[closest] = (math.inf, closest, Point(tx, ty))
+        # Grab the closest possible ship to the target and build.
+        possibleShips = []
+        for ship in state['myShips']:
+            if ship.halite + state['currentHalite'] >= 500:
+                possibleShips.append(ship)
+        closest = closest_thing(Point(tx, ty),possibleShips)
+        if closest != None:
+            action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
     elif v > 500 and v > state['shipValue']:

@@ -56,6 +56,9 @@ def mine_reward(ship,cell):
         # Current cell multiplier
         if cHalite > state['haliteMean'] * mineWeights[2] and ship.halite > 0:
             cHalite = cHalite * mineWeights[1]
+        # Don't mine if it will put ship in danger
+        if get_danger(ship.halite+cell.halite*0.25)[cPos.x][cPos.y] > 1:
+            return 0
         # Farming!
         if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
             return 0
@@ -86,6 +89,10 @@ def mine_reward(ship,cell):
     # Penalty 
     if cell.ship != None and not cell.ship is ship:
         res = res / 2
+
+    # Danger penalty
+    if state[ship]['danger'][cPos.x][cPos.y] > 1:
+        res -= mineWeights[3] ** state[ship]['danger'][cPos.x][cPos.y]
         
     return res
 
@@ -153,7 +160,7 @@ def return_reward(ship,cell):
         res = ship.halite / (dist(sPos,cPos)) * returnWeights[0]
     else:
         res = ship.halite / (dist(sPos,cPos))
-     
+    
     res = res * returnWeights[1]
     return res 
 
@@ -168,7 +175,7 @@ def shipyard_value(cell):
         nearestShipyardDistance = dist(nearestShipyard.position,cPos)
     negativeControl = min(0,state['controlMap'][cPos.x][cPos.y])
     if len(state['myShips']) > 0:
-        negativeControl -= 0.5 ** dist(closest_thing(cPos,state['myShips']).position,cPos)
+        negativeControl = max(negativeControl-0.5 ** dist(closest_thing(cPos,state['myShips']).position,cPos),state['negativeControlMap'][cPos.x][cPos.y])
     haliteSpread = state['haliteSpread'][cPos.x][cPos.y] - state['haliteMap'][cPos.x][cPos.y]
     shipShipyardRatio = len(state['myShips']) / max(1,len(state['myShipyards']))
 

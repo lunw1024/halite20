@@ -56,6 +56,7 @@ def encode():
     state['closestShipyard'] = closest_shipyard(state['myShipyards'])
     # Control map
     state['controlMap'] = control_map(state['ally']-state['enemy'],state['allyShipyard']-state['enemyShipyard'])
+    state['negativeControlMap'] = control_map(-state['enemy'],-state['enemyShipyard'])
     #Enemy ship labeled by halite. If none, infinity
     state['enemyShipHalite'] = np.zeros((N, N))
     state['enemyShipHalite'] += np.Infinity
@@ -66,6 +67,7 @@ def encode():
     for ship in state['myShips']:
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
+        state[ship]['danger'] = get_danger(ship.halite)
     # Who we should attack
     if len(state['board'].opponents) > 0:
         state['killTarget'] = get_target()
@@ -85,6 +87,20 @@ def get_avoidance(s):
     blocked = enemyBlock
     blocked = np.where(blocked>0,1,0)
     return blocked
+
+def get_danger(s):
+    threshold = s
+    temp = np.where(state['enemyShipHalite'] < threshold, 1, 0)
+    dangerMap = np.zeros((temp.shape))
+    for i in range(1,4):
+        dangerMap += np.roll(temp,i,axis=0) * 0.7**i
+        dangerMap += np.roll(temp,-i,axis=0) * 0.7**i
+    temp = dangerMap.copy()
+    for i in range(1,4):
+        dangerMap += np.roll(temp,i,axis=1) * 0.7**i
+        dangerMap += np.roll(temp,-i,axis=1) * 0.7**i
+    return dangerMap
+    
 
 def closest_shipyard(shipyards):
     N = state['configuration'].size

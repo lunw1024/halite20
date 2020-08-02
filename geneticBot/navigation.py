@@ -28,7 +28,6 @@ def direction_to(s: Point, t: Point) -> ShipAction:
     candidate = directions_to(s, t)
     return random.choice(candidate) if len(candidate) > 0 else None
 
-
 # Returns the "next" point of a ship at point s with shipAction d
 def dry_move(s: Point, d: ShipAction) -> Point:
     N = state['configuration'].size
@@ -58,9 +57,16 @@ def safe_naive(s,t,blocked):
             return direction
     return None
 
-# A* Movement from ship s to point t
-# See https://en.wikipedia.org/wiki/A*_search_algorithm
-def a_move(s : Ship, t : Point, inBlocked):
+def move_cost(s : Ship, t : Point):
+    navigationWeights = weights[5]
+    cost = state[s]['danger'][t.x][t.y] * navigationWeights[0]
+    for pos in get_adjacent(t):
+        if state['enemyShipHalite'][pos.x][pos.y] == s.halite:
+            cost += navigationWeights[0]
+    return cost
+
+# Dijkstra's movement
+def d_move(s : Ship, t : Point, inBlocked):
 
     nextMap = state['next']
     sPos = s.position
@@ -98,7 +104,7 @@ def a_move(s : Ship, t : Point, inBlocked):
             t = sPos
             desired = None
     else:
-        #A*
+        #Dijkstra
         pred = {}
         calcDist = {}
         pq = PriorityQueue()
@@ -118,8 +124,8 @@ def a_move(s : Ship, t : Point, inBlocked):
             for processPoint in get_adjacent(currentPoint):
                 if blocked[processPoint.x][processPoint.y] or processPoint in calcDist: 
                     continue
-                calcDist[processPoint] = calcDist[currentPoint] + 1
-                priority =  calcDist[processPoint] + dist(processPoint,t)
+                calcDist[processPoint] = calcDist[currentPoint] + 1 + move_cost(s,processPoint)
+                priority = calcDist[processPoint]
                 pqMap[priority] = pqMap.get(priority,[])
                 pqMap[priority].append(processPoint)
                 pq.put(priority)
@@ -164,7 +170,7 @@ def a_move(s : Ship, t : Point, inBlocked):
             result = process_action(action[target])
             # Going there will kill it
             if result == None:
-                desired = a_move(s,t,inBlocked)
+                desired = d_move(s,t,inBlocked)
                 nextMap[t.x][t.y] = 0
                 t = dry_move(sPos,desired)
     nextMap[t.x][t.y] = 1
