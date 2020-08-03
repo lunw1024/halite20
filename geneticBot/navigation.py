@@ -58,8 +58,8 @@ def safe_naive(s,t,blocked):
     return None
 
 def move_cost(s : Ship, t : Point):
-    navigationWeights = weights[5]
-    cost = state[s]['danger'][t.x][t.y] * navigationWeights[0]
+    navigationWeights = weights[6]
+    cost = state[s]['danger'][t.x][t.y] * navigationWeights[1]
     for pos in get_adjacent(t):
         if state['enemyShipHalite'][pos.x][pos.y] == s.halite:
             cost += navigationWeights[0]

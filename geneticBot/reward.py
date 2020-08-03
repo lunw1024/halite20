@@ -67,6 +67,9 @@ def mine_reward(ship,cell):
             if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
                 return 0
     
+    # Dangerous area
+    cHalite -= state['negativeControlMap'][cPos.x][cPos.y] * mineWeights[4]
+    
     # Nearby 
     if cPos in get_adjacent(sPos) and state['controlMap'][cPos.x][cPos.y] < 0.5:
         # Try to reduce collision num
@@ -90,7 +93,6 @@ def mine_reward(ship,cell):
     if cell.ship != None and not cell.ship is ship:
         res = res / 2
 
-    # Danger penalty
     if state[ship]['danger'][cPos.x][cPos.y] > 1:
         res -= mineWeights[3] ** state[ship]['danger'][cPos.x][cPos.y]
         
@@ -102,10 +104,9 @@ def attack_reward(ship,cell):
     cPos = cell.position 
     sPos = ship.position
     d = dist(ship.position,cell.position)
-    multiplier = 1
     
     # Don't even bother
-    if dist(sPos,cPos) > 4:
+    if dist(sPos,cPos) > 6:
         return 0
 
     # Defend the farm!
@@ -115,23 +116,22 @@ def attack_reward(ship,cell):
     res = 0
     # It's a ship!
     if cell.ship != None:
-
             # Nearby 
         if cPos in get_adjacent(sPos) and state['controlMap'][cPos.x][cPos.y] < 0.5:
             # Try to reduce collision num
             for pos in get_adjacent(cPos):
-                if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite and cell.ship.player != state['board'].cells[pos].ship.player:
+                if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
                     return 0
 
         if cell.ship.halite > ship.halite:
-            res = max(cell.halite / d,state['controlMap'][cPos.x][cPos.y] * 100) / d**2
-        elif len(state['myShips']) > 10:
-            res = state['controlMap'][cPos.x][cPos.y] * 100 / d**2
+            res = max([cell.halite**(attackWeights[5]),state['controlMap'][cPos.x][cPos.y]*attackWeights[2],attackWeights[3]]) - d*attackWeights[4]
+        elif len(state['myShips']) > 15:
+            res = state['controlMap'][cPos.x][cPos.y] * attackWeights[6] - d**2
         if ship.halite != 0:
             res = res / 3
     
     # It's a shipyard!
-    elif len(state['myShips']) > 10:
+    elif len(state['myShips']) > 10 and ship.halite == 0:
         if len(state['myShips']) > 15 and cell.shipyard.player == state['killTarget']:
             # Is it viable to attack
             viable = True
@@ -169,6 +169,9 @@ def shipyard_value(cell):
     shipyardWeights = weights[0]
     cPos = cell.position
 
+    if state['board'].step > 310:
+        return 0
+
     nearestShipyard = closest_thing(cPos,state['shipyards'])
     nearestShipyardDistance = 1
     if nearestShipyard != None:
@@ -204,7 +207,7 @@ def ship_value():
     res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
     res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
     res += len(state['myShips'])  ** 1.5 * weights[4][2]
-    return res
+    return res 
 
 def farm_value(cell):
     cPos = cell.position

@@ -64,6 +64,14 @@ def ship_tasks():  # update action
         if i.halite < 20 and i.ship == None and i.shipyard == None:
             # Spots not very interesting
             continue
+        if i.ship != None and i.ship.player_id != state['me']:
+            if i.ship.halite > 0 and state['controlMap'][i.position.x][i.position.y] > weights[2][7]:
+                targets.append((i,'cell'))
+                targets.append((i,'cell'))
+                targets.append((i,'cell'))
+                targets.append((i,'cell'))
+            elif i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
+                continue
         targets.append((i,'cell'))
 
     rewards = np.zeros((len(shipsToAssign), len(targets)))

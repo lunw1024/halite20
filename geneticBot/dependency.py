@@ -23,6 +23,7 @@ state = {}
         # 3 - return weights
         # 4 - spawn weights
         # 5 - guard weights
+        # 6 - navigation weights
     
 temp = []
 weights = weights.split('\n')
