@@ -90,8 +90,8 @@ def get_avoidance(s):
 
 def get_danger(s):
     threshold = s
-    temp = np.where(state['enemyShipHalite'] < threshold, 1, 0)
-    dangerMap = np.zeros((temp.shape))
+    dangerMap = np.where(state['enemyShipHalite'] < threshold, 1, 0)
+    temp = dangerMap.copy()
     for i in range(1,4):
         dangerMap += np.roll(temp,i,axis=0) * 0.7**i
         dangerMap += np.roll(temp,-i,axis=0) * 0.7**i
@@ -115,11 +115,9 @@ def closest_shipyard(shipyards):
     return res
     
 def control_map(ships,shipyards):
-        
         ITERATIONS = 3
 
         res = np.copy(ships)
-
         for i in range(1,ITERATIONS+1):
             res += np.roll(ships,i,axis=0) * 0.5**i
             res += np.roll(ships,-i,axis=0) * 0.5**i
