@@ -1,8 +1,3 @@
-# References
-Basics:  
-https://www.kaggle.com/c/halite/overview/halite-rules  
-https://www.kaggle.com/sam/halite-sdk-overview  
-
 ## Navigation (navigation.py)
 
 **d_move(s: Ship, t: Point, blocked)** -> The ShipAction to move ship s to t.
