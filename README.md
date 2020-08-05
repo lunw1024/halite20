@@ -15,6 +15,11 @@ Under immediate danger, predictions are made based on adjacent squares to determ
 
 **dist(a: Point, b: Point)** -> Manhattan distance from a to b accounting for wrap.
 
+**move_cost(s: Ship, t: Point)** -> Number
+Returns the cost of all edges leading into node t. (See *d_move()*)
+Penalizes danger. (See *state['danger']*). Penalizes adjacent ships with equal halite to reduce collisions.
+A higher cost will discourage ships from transiting using node t.
+
 **unpack(n)** -> Returns Point(n // N, n % N) where N is map size. Basically transforms integer to point.
 
 **dry_move(s: Point, d: ShipAction)** -> Point that is s offset by d
