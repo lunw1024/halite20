@@ -1,10 +1,13 @@
 ## Navigation (navigation.py)
 
-**d_move(s: Ship, t: Point, blocked)** -> The ShipAction to move ship s to t.
-Each *Point* is viewed as a node on the graph. The cost of moving to a node is defined by *move_cost()*. *blocked* are the nodes that cannot be accessed (immediate danger). Runs standard Dijkstra https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm from start to finish. 
-- *state['next']* is used to keep track of the positions of ally ships next turn. Used to alter *Blocked*. Once implemented, swapping occurs naturally as current positions are always labeled safe unless already moved.
+**`d_move(s: Ship, t: Point, blocked)`** -> The ShipAction to move ship s to t.
+Each `Point` is viewed as a node on the graph. The cost of moving to a node is defined by `move_cost()`. Using Dijkstra to determine the direction for next step.  
+`state['next']` is the positions of ally ships next turn.  
+`blocked` are the nodes that cannot be accessed (immediate danger). Note that only a ship's future position is labeled as "blocked".  
+
 - Collision prevention is done through recursion (line 165) where if target is an ally who has not moved, and cannot move, *blocked* and *state['next']* are relabelled and d_move() is done again. If the ally can move, then mark the ally position as *blocked* for the ally and run d_move() on the ally - this will force the ally ship to move to another position. 
-- If there is no path to target, try to move in general direction.
+
+If impossible to approach the target, try to move in the direction provided by `general_naive()`.
 
 **micro_run(s: Ship)** -> ShipAction
 Under immediate danger, predictions are made based on adjacent squares to determine the relative safest square. Move to a square that is empty and with higher friendly control (To be much improved)
