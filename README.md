@@ -70,28 +70,51 @@ OR
 *state* -> Dictionary. Most important static variable, because it acts as container for every static variable.
 Key -- value
 'configuration' -> Configuration
+
 'me' -> Current player ID
+
 'playerNum' -> Number of players
+
 'memory'[step] -> Past states at step step
+
 'next' -> See *navigation.py*
+
 'cells' -> Iterable of all the cells on board
+
 'ships' -> Iterable of all the ships on board
+
 'shipyards' -> Iterable of all the shipyards on board
+
 'myShips' -> List of my ships
+
 'enemyShips' -> List of enemy ships
+
 'myShipyards' -> List of my shipyards
+
 'enemyShipyards' -> List of enemy shipyards
+
 'haliteMap' -> NP array. [x][y] represents halite at Point(x,y)
+
 'haliteSpread' -> NP array. [x][y] represents nearby halite at Point(x,y). Through convolution (卷积）.
+
 'shipMap' -> NP array. [player_id][x][y] true if player_id ship at Point(x,y)
+
 'shipyardMap' -> NP array. [player_id][x][y] true if player_id shipyard at Point(x,y)
+
 'haliteTotal' -> Number. Total halite.
+
 'haliteMean' -> Number. Mean halite.
+
 'controlMap' -> NP array. [x][y] represents control at Point(x,y). Through convolution. Positive means friendly has higher presence, negative means enemy.
+
 'negativeControlMap' -> NP array. control map but ignores ally units.
+
 ship['blocked'] -> NP array. ship[x][y] true if ship at immediate danger(can die next turn) at Point(x,y).
+
 ship['danger'] -> NP array. [x][y] represents the danger for ship at Point(x,y). Through convolution. Basically control map specific to ship (halite threshold), and ignoring all allies.
+
 'killTarget' -> Player. Who we want to kill. Decided based on asset value.
+
 
 **init(board: Board)**
 **update(board: Board)**
