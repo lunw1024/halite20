@@ -3,7 +3,7 @@
 **`d_move(s: Ship, t: Point, blocked)`** -> The ShipAction to move ship s to t.
 Each `Point` is viewed as a node on the graph. The cost of moving to a node is defined by `move_cost()`. Using Dijkstra to determine the direction for next step.  
 `state['next']` is the positions of ally ships next turn.  
-`blocked` are the nodes that cannot be accessed (immediate danger). Note that only a ship's future position is labeled as "blocked".  
+`blocked` = `state['next']` + `dangerMap`. Note that only a ship's future position is labeled as "blocked".  
 
 - Collision prevention is done through recursion (line 165) where if target is an ally who has not moved, and cannot move, *blocked* and *state['next']* are relabelled and d_move() is done again. If the ally can move, then mark the ally position as *blocked* for the ally and run d_move() on the ally - this will force the ally ship to move to another position. 
 
