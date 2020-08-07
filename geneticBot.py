@@ -172,15 +172,20 @@ def ship_tasks():  # update action
     shipsToAssign = []
 
     # Split attack ships and mine ships
+    temp = []
     state['attackers'] = []
-    minerNum = miner_num()
-    attackerNum = len(state['myShips']) - minerNum
-    for ship in me.ships:
-        if ship in action:
-            continue
-        if attackerNum > 0:
-            attackerNum -= 1
-            state['attackers'].append(ship)
+    for ship in state['enemyShips']:
+        if ship.halite != 0:
+            temp.append(ship)
+    if len(temp) > 0:
+        minerNum = miner_num()
+        attackerNum = len(state['myShips']) - minerNum
+        for ship in me.ships:
+            if ship in action:
+                continue
+            if attackerNum > 0:
+                attackerNum -= 1
+                state['attackers'].append(ship)
 
     # All ships rule based
     for ship in me.ships:
@@ -228,7 +233,7 @@ def ship_tasks():  # update action
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
             continue
-        if i.halite < 20 and i.ship == None and i.shipyard == None:
+        if i.halite < 15 and i.ship == None and i.shipyard == None:
             # Spots not very interesting
             continue
         if i.ship != None and i.ship.player_id != state['me']:
