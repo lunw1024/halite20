@@ -124,9 +124,9 @@ def attack_reward(ship,cell):
                     return 0
 
         if cell.ship.halite > ship.halite:
-            res = max([cell.halite**(attackWeights[5]),state['controlMap'][cPos.x][cPos.y]*attackWeights[2],attackWeights[3]]) - d*attackWeights[4]
+            res = max([cell.halite**(attackWeights[4]),state['controlMap'][cPos.x][cPos.y]*attackWeights[2]]) - d*attackWeights[3]
         elif len(state['myShips']) > 15:
-            res = state['controlMap'][cPos.x][cPos.y] * attackWeights[6] - d**2
+            res = state['controlMap'][cPos.x][cPos.y] * attackWeights[5] - d**2
         if ship.halite != 0:
             res = res / 3
     

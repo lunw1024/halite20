@@ -20,7 +20,18 @@ def ship_tasks():  # update action
     tasks = {}
     shipsToAssign = []
 
-    # Rule based: Flee, Return
+    # Split attack ships and mine ships
+    state['attackers'] = []
+    minerNum = miner_num()
+    attackerNum = len(state['myShips']) - minerNum
+    for ship in me.ships:
+        if ship in action:
+            continue
+        if attackerNum > 0:
+            attackerNum -= 1
+            state['attackers'].append(ship)
+
+    # All ships rule based
     for ship in me.ships:
         # Flee
         for target in get_adjacent(ship.position):
@@ -48,12 +59,17 @@ def ship_tasks():  # update action
                 target = closest_thing(ship.position,killTarget.ships)
                 action[ship] = (ship.halite, ship, target.position)
 
-        if ship in action:
+        if ship in action or ship in state['attackers']:
             continue
 
         shipsToAssign.append(ship)
 
-    # Reward based: Attack, Mine
+    # Rule based: Attackers
+    print(len(state['myShips']))
+    print(len(state['attackers']))
+    attack(state['attackers'])
+
+    # Reward based: Mining + Guarding + Control
     targets = [] # (cell, type)
     for i in board.cells.values():  # Filter targets
         if i.shipyard != None and i.shipyard.player_id == state['me']:
@@ -65,21 +81,13 @@ def ship_tasks():  # update action
             # Spots not very interesting
             continue
         if i.ship != None and i.ship.player_id != state['me']:
-            if i.ship.halite > 0 and state['controlMap'][i.position.x][i.position.y] > weights[2][7]:
-                targets.append((i,'cell'))
-                targets.append((i,'cell'))
-                targets.append((i,'cell'))
-                targets.append((i,'cell'))
-            elif i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
+            if i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
                 continue
         targets.append((i,'cell'))
-
     rewards = np.zeros((len(shipsToAssign), len(targets)))
-
     for i, ship in enumerate(shipsToAssign):
         for j, target in enumerate(targets):
-            rewards[i, j] = get_reward(ship, target)
-            
+            rewards[i, j] = get_reward(ship, target)          
     rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True)  # rows[i] -> cols[i]
     for r, c in zip(rows, cols):
         task = targets[c]
@@ -143,8 +151,6 @@ def convert_tasks():
         if v < a:
             v = a
             t = cell
-    #print("Shipyard Value",v)
-    #print("Ship value", state['shipValue'])
     tx, ty = t.position.x,t.position.y
     # Calculate the reward for each cell
     if state['board'].step == 0:

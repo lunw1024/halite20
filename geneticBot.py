@@ -1,10 +1,10 @@
-weights='''0.9790460159455175 521.2407434909387 0.7923793908718682 0.7465819541587124 0.15346940177639612 -250
-0.02812899270203704 2.446412587257225 0.47149352967640235 12 5
-0.0934167398237842 229.07285374558384 10 10 1 0.5 10 -0.5
-0.32917669267944993 0.12670831197102922
-1.0216033904875512 -3.222779158469551 -2.684281446031774
-122.15873770334022
-0.6 0.2'''
+weights='''1.065318617455976 542.1433864410643 0.7511632555608448 0.6945893010559424 0.1341607259959342 -256.54011220873883
+0.0010006686129102006 2.3837319660395457 0.4770079274532575 14.871982834273645 5.837852094972167
+0.04043743652542793 219.09952521708655 9.561641308515489 1.1406984927798645 0.4806089913651024 11.485903586701356
+0.24844607946009314 0.03783341427621351
+1 0 0
+112.69692418951784
+3 0.1'''
 # Contains all dependencies used in bot
 # First file loaded
 
@@ -105,6 +105,52 @@ def halite_per_turn(deposit, shipTime, returnTime):
         perTurn = mined / (turns+travelTime)
         maximum = perTurn if perTurn > maximum else maximum
     return maximum
+def miner_num():
+    if state['board'].step < 300:
+        return min(len(state['myShips']),int(state['haliteMean'] / 2 + len(state['myShipyards'])))
+    else:
+        return len(state['myShips'])
+
+def attack(ships):
+    global action
+
+    # Select potential targets
+    targets = []
+    for ship in state['enemyShips']:
+        if ship.halite != 0:
+            targets.append(ship)
+    # Execute
+    for ship in ships:
+        # Force return
+        if ship.halite > 0:
+            action[ship] = (INF, ship, state['closestShipyard'][ship.position.x][ship.position.y])
+            continue
+        # Attack
+        finalTarget = targets[0]
+        v = rule_attack_reward(ship,finalTarget)
+        for target in targets:
+            tv = rule_attack_reward(ship,target)
+            if tv > v:
+                v = tv
+                finalTarget = target
+        action[ship] = (0, ship, finalTarget.position)
+
+# Greedy selection 
+# TODO: Improve this!
+def rule_attack_reward(s,t):
+    tPos = t.position 
+    sPos = s.position
+    
+    res = 1/dist(tPos,sPos)
+    if t.player == state['killTarget']:
+        res = res * 2
+
+    for pos in get_adjacent(tPos):
+        if state['enemyShipHalite'][pos.x][pos.y] <= s.halite:
+            return 0
+
+    return res
+
 
 # Core strategy
 
@@ -125,7 +171,18 @@ def ship_tasks():  # update action
     tasks = {}
     shipsToAssign = []
 
-    # Rule based: Flee, Return
+    # Split attack ships and mine ships
+    state['attackers'] = []
+    minerNum = miner_num()
+    attackerNum = len(state['myShips']) - minerNum
+    for ship in me.ships:
+        if ship in action:
+            continue
+        if attackerNum > 0:
+            attackerNum -= 1
+            state['attackers'].append(ship)
+
+    # All ships rule based
     for ship in me.ships:
         # Flee
         for target in get_adjacent(ship.position):
@@ -153,12 +210,17 @@ def ship_tasks():  # update action
                 target = closest_thing(ship.position,killTarget.ships)
                 action[ship] = (ship.halite, ship, target.position)
 
-        if ship in action:
+        if ship in action or ship in state['attackers']:
             continue
 
         shipsToAssign.append(ship)
 
-    # Reward based: Attack, Mine
+    # Rule based: Attackers
+    print(len(state['myShips']))
+    print(len(state['attackers']))
+    attack(state['attackers'])
+
+    # Reward based: Mining + Guarding + Control
     targets = [] # (cell, type)
     for i in board.cells.values():  # Filter targets
         if i.shipyard != None and i.shipyard.player_id == state['me']:
@@ -170,21 +232,13 @@ def ship_tasks():  # update action
             # Spots not very interesting
             continue
         if i.ship != None and i.ship.player_id != state['me']:
-            if i.ship.halite > 0 and state['controlMap'][i.position.x][i.position.y] > weights[2][7]:
-                targets.append((i,'cell'))
-                targets.append((i,'cell'))
-                targets.append((i,'cell'))
-                targets.append((i,'cell'))
-            elif i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
+            if i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
                 continue
         targets.append((i,'cell'))
-
     rewards = np.zeros((len(shipsToAssign), len(targets)))
-
     for i, ship in enumerate(shipsToAssign):
         for j, target in enumerate(targets):
-            rewards[i, j] = get_reward(ship, target)
-            
+            rewards[i, j] = get_reward(ship, target)          
     rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True)  # rows[i] -> cols[i]
     for r, c in zip(rows, cols):
         task = targets[c]
@@ -248,8 +302,6 @@ def convert_tasks():
         if v < a:
             v = a
             t = cell
-    #print("Shipyard Value",v)
-    #print("Ship value", state['shipValue'])
     tx, ty = t.position.x,t.position.y
     # Calculate the reward for each cell
     if state['board'].step == 0:
@@ -387,10 +439,10 @@ def get_avoidance(s):
 
 def get_danger(s):
     threshold = s
-    temp = np.where(state['enemyShipHalite'] < threshold, 1, 0)
-    dangerMap = np.zeros((temp.shape))
+    dangerMap = np.where(state['enemyShipHalite'] < threshold, 1, 0)
+    temp = dangerMap.copy()
     for i in range(1,4):
-        dangerMap += np.roll(temp,i,axis=0) * 0.7**i
+        dangerMap = np.add(dangerMap,np.roll(temp,i,axis=0) * 0.7**i,casting="unsafe")
         dangerMap += np.roll(temp,-i,axis=0) * 0.7**i
     temp = dangerMap.copy()
     for i in range(1,4):
@@ -412,11 +464,9 @@ def closest_shipyard(shipyards):
     return res
     
 def control_map(ships,shipyards):
-        
         ITERATIONS = 3
 
         res = np.copy(ships)
-
         for i in range(1,ITERATIONS+1):
             res += np.roll(ships,i,axis=0) * 0.5**i
             res += np.roll(ships,-i,axis=0) * 0.5**i
@@ -426,6 +476,7 @@ def control_map(ships,shipyards):
             res += np.roll(temp,-i,axis=1) * 0.5**i
         
         return res + shipyards
+        
 
 def get_target():
     board = state['board']
@@ -785,9 +836,9 @@ def attack_reward(ship,cell):
                     return 0
 
         if cell.ship.halite > ship.halite:
-            res = max([cell.halite**(attackWeights[5]),state['controlMap'][cPos.x][cPos.y]*attackWeights[2],attackWeights[3]]) - d*attackWeights[4]
+            res = max([cell.halite**(attackWeights[4]),state['controlMap'][cPos.x][cPos.y]*attackWeights[2]]) - d*attackWeights[3]
         elif len(state['myShips']) > 15:
-            res = state['controlMap'][cPos.x][cPos.y] * attackWeights[6] - d**2
+            res = state['controlMap'][cPos.x][cPos.y] * attackWeights[5] - d**2
         if ship.halite != 0:
             res = res / 3
     
@@ -907,6 +958,7 @@ def agent(board):
 
     # Farm
     #farm_tasks()
+
 
     # Ship
     ship_tasks()

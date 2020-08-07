@@ -93,7 +93,7 @@ def get_danger(s):
     dangerMap = np.where(state['enemyShipHalite'] < threshold, 1, 0)
     temp = dangerMap.copy()
     for i in range(1,4):
-        dangerMap += np.roll(temp,i,axis=0) * 0.7**i
+        dangerMap = np.add(dangerMap,np.roll(temp,i,axis=0) * 0.7**i,casting="unsafe")
         dangerMap += np.roll(temp,-i,axis=0) * 0.7**i
     temp = dangerMap.copy()
     for i in range(1,4):
@@ -127,6 +127,7 @@ def control_map(ships,shipyards):
             res += np.roll(temp,-i,axis=1) * 0.5**i
         
         return res + shipyards
+        
 
 def get_target():
     board = state['board']
