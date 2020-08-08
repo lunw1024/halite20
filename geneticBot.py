@@ -939,6 +939,8 @@ def shipyard_value(cell):
     return res
 
 def ship_value():
+    if len(state['myShips']) >= 60:
+        return 0
     res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
     res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
     res += len(state['myShips'])  ** 1.5 * weights[4][2]
