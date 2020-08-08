@@ -106,10 +106,14 @@ def halite_per_turn(deposit, shipTime, returnTime):
         maximum = perTurn if perTurn > maximum else maximum
     return maximum
 def miner_num():
+    
     if state['board'].step < 300:
-        return min(len(state['myShips']),int(state['haliteMean'] / 2 + len(state['myShipyards'])))
+        if len(state['myShips']) > 25:
+            return min(len(state['myShips']),int(state['haliteMean'] / 8 + len(state['myShipyards'])))
+        else:
+            return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
     else:
-        return len(state['myShips'])
+        return len(state['myShips']) * 0.8
 
 def attack(ships):
     global action
@@ -151,9 +155,11 @@ def rule_attack_reward(s,t,target_list):
     res = res * t.halite
     res = res * colaborators
     
+    '''
     for pos in get_adjacent(tPos):
         if state['enemyShipHalite'][pos.x][pos.y] <= s.halite:
             return 0
+    '''
 
     return res
 
@@ -586,7 +592,13 @@ def d_move(s : Ship, t : Point, inBlocked):
         blocked[t.x][t.y] -= 1
     # Don't ram stuff thats not the target. Unless we have an excess of ships. Or we are trying to murder a team.
     if state['board'].step < state['configuration']['episodeSteps'] - state['configuration'].size * 1.5:
-        blocked += np.where(state['enemyShipHalite'] == s.halite, 1, 0)
+        temp = np.where(state['enemyShipHalite'] == s.halite, 1, 0)
+        blocked += temp
+        if s in state['attackers']:
+            blocked+= np.roll(temp,1,axis=0)
+            blocked+= np.roll(temp,1,axis=1)
+            blocked+= np.roll(temp,-1,axis=0)
+            blocked+= np.roll(temp,-1,axis=1)
 
     blocked = np.where(blocked>0,1,0)
 
@@ -773,7 +785,7 @@ def mine_reward(ship,cell):
 
     # Halite per turn
     halitePerTurn = 0
-    
+
     # Current cell
     if sPos == cPos:
         # Current cell multiplier

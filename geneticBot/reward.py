@@ -50,7 +50,7 @@ def mine_reward(ship,cell):
 
     # Halite per turn
     halitePerTurn = 0
-    
+
     # Current cell
     if sPos == cPos:
         # Current cell multiplier

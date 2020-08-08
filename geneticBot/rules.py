@@ -1,8 +1,12 @@
 def miner_num():
+    
     if state['board'].step < 300:
-        return min(len(state['myShips']),int(state['haliteMean'] / 2 + len(state['myShipyards'])))
+        if len(state['myShips']) > 25:
+            return min(len(state['myShips']),int(state['haliteMean'] / 8 + len(state['myShipyards'])))
+        else:
+            return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
     else:
-        return len(state['myShips'])
+        return len(state['myShips']) * 0.8
 
 def attack(ships):
     global action
@@ -44,8 +48,10 @@ def rule_attack_reward(s,t,target_list):
     res = res * t.halite
     res = res * colaborators
     
+    '''
     for pos in get_adjacent(tPos):
         if state['enemyShipHalite'][pos.x][pos.y] <= s.halite:
             return 0
+    '''
 
     return res
