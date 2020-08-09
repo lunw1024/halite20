@@ -70,8 +70,8 @@ def ship_tasks():  # update action
         shipsToAssign.append(ship)
 
     # Rule based: Attackers
-    print(len(state['myShips']))
-    print(len(state['attackers']))
+    #print(len(state['myShips']))
+    #print(len(state['attackers']))
     attack(state['attackers'])
 
     # Reward based: Mining + Guarding + Control

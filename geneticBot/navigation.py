@@ -175,7 +175,7 @@ def d_move(s : Ship, t : Point, inBlocked):
             nextMap[t.x][t.y] = 1
             result = process_action(action[target])
             # Going there will kill it
-            if result == None:
+            if result == None or result == ShipAction.CONVERT:
                 desired = d_move(s,t,inBlocked)
                 nextMap[t.x][t.y] = 0
                 t = dry_move(sPos,desired)

@@ -233,8 +233,8 @@ def ship_tasks():  # update action
         shipsToAssign.append(ship)
 
     # Rule based: Attackers
-    print(len(state['myShips']))
-    print(len(state['attackers']))
+    #print(len(state['myShips']))
+    #print(len(state['attackers']))
     attack(state['attackers'])
 
     # Reward based: Mining + Guarding + Control
@@ -681,13 +681,16 @@ def d_move(s : Ship, t : Point, inBlocked):
 
     # Reduce collisions
     if desired != None and state['board'].cells[t].ship != None and state['board'].cells[t].ship.player_id == state['me']:
+        print(sPos,t)
         target = state['board'].cells[t].ship
         s.next_action = desired
         if action[target] != True:
             nextMap[t.x][t.y] = 1
             result = process_action(action[target])
+            print(result)
             # Going there will kill it
-            if result == None:
+            if result == None or result == ShipAction.CONVERT:
+                print("hi")
                 desired = d_move(s,t,inBlocked)
                 nextMap[t.x][t.y] = 0
                 t = dry_move(sPos,desired)
@@ -939,6 +942,7 @@ def shipyard_value(cell):
     return res
 
 def ship_value():
+    # 普及一胎，控制二胎，消灭三胎
     if len(state['myShips']) >= 60:
         return 0
     res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
