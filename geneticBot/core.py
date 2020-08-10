@@ -120,26 +120,6 @@ def process_action(act):
         act[1].next_action = ShipAction.CONVERT
     return act[1].next_action
 
-def spawn_tasks():
-    shipyards = state['board'].current_player.shipyards
-    shipyards.sort(reverse=True, key=lambda shipyard: state['haliteSpread'][shipyard.position.x][shipyard.position.y])
-
-    for shipyard in shipyards:
-        if state['currentHalite'] >= 500 and not state['next'][shipyard.cell.position.x][shipyard.cell.position.y]:
-            if state['shipValue'] >= 500:
-                shipyard.next_action = ShipyardAction.SPAWN
-                state['currentHalite'] -= 500
-            elif len(state['myShips']) < 1 and shipyard == shipyards[0]:
-                shipyard.next_action = ShipyardAction.SPAWN
-                state['currentHalite'] -= 500
-            elif len(state['myShipyards']) == 1:
-                for pos in get_adjacent(shipyard.position):
-                    cell = state['board'].cells[pos]
-                    if cell.ship != None and cell.ship.player_id != state['me']:
-                        shipyard.next_action = ShipyardAction.SPAWN
-                        state['currentHalite'] -= 500
-                        return
-
 def convert_tasks():
     global action
 

@@ -82,11 +82,13 @@ def d_move(s : Ship, t : Point, inBlocked):
     if state['board'].step < state['configuration']['episodeSteps'] - state['configuration'].size * 1.5:
         temp = np.where(state['enemyShipHalite'] == s.halite, 1, 0)
         blocked += temp
+        '''
         if s in state['attackers']:
             blocked+= np.roll(temp,1,axis=0)
             blocked+= np.roll(temp,1,axis=1)
             blocked+= np.roll(temp,-1,axis=0)
             blocked+= np.roll(temp,-1,axis=1)
+        '''
 
     blocked = np.where(blocked>0,1,0)
 

@@ -49,7 +49,8 @@ def update(board):
     state['currentHalite'] = board.current_player.halite
     state['next'] = np.zeros((board.configuration.size,board.configuration.size))
     state['board'] = board
-    state['memory'][board.step] = board
+    state['memory'][board.step] = {}
+    state['memory'][board.step]['board'] = board
     state['cells'] = board.cells.values()
     state['ships'] = board.ships.values()
     state['myShips'] = board.current_player.ships
