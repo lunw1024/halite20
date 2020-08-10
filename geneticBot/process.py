@@ -57,6 +57,7 @@ def encode():
     # Control map
     state['controlMap'] = control_map(state['ally']-state['enemy'],state['allyShipyard']-state['enemyShipyard'])
     state['negativeControlMap'] = control_map(-state['enemy'],-state['enemyShipyard'])
+    state['positiveControlMap'] = control_map(state['ally'],state['allyShipyard'])
     #Enemy ship labeled by halite. If none, infinity
     state['enemyShipHalite'] = np.zeros((N, N))
     state['enemyShipHalite'] += np.Infinity

@@ -47,6 +47,7 @@ def mine_reward(ship,cell):
     sPos = ship.position
     cPos = cell.position
     cHalite = cell.halite
+    shipyardDist = dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
 
     # Halite per turn
     halitePerTurn = 0
@@ -56,16 +57,17 @@ def mine_reward(ship,cell):
         # Current cell multiplier
         if cHalite > state['haliteMean'] * mineWeights[2] and ship.halite > 0:
             cHalite = cHalite * mineWeights[1]
-        # Don't mine if it will put ship in danger
-        if get_danger(ship.halite+cell.halite*0.25)[cPos.x][cPos.y] > 1:
-            return 0
         # Farming!
         if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
             return 0
-        # Don't mine if enemy near
-        for pos in get_adjacent(sPos):
-            if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
+        if shipyardDist >= 3:
+            # Don't mine if it will put ship in danger
+            if get_danger(ship.halite+cell.halite*0.25)[cPos.x][cPos.y] > 1:
                 return 0
+            # Don't mine if enemy near
+            for pos in get_adjacent(sPos):
+                if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
+                    return 0
     
     # Dangerous area
     cHalite -= state['negativeControlMap'][cPos.x][cPos.y] * mineWeights[4]
@@ -84,7 +86,7 @@ def mine_reward(ship,cell):
         # Yes
         halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
     '''
-    halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y])) 
+    halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),shipyardDist) 
     # Surrounding halite
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
     res = halitePerTurn + spreadGain
@@ -156,6 +158,7 @@ def return_reward(ship,cell):
     if sPos == cPos :
         return 0
     res = 0
+    
     if state['currentHalite'] > 1000:
         res = ship.halite / (dist(sPos,cPos)) * returnWeights[0]
     else:

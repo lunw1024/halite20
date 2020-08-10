@@ -21,11 +21,8 @@ def ship_tasks():  # update action
     shipsToAssign = []
 
     # Split attack ships and mine ships
-    temp = []
+    temp = get_targets()
     state['attackers'] = []
-    for ship in state['enemyShips']:
-        if ship.halite != 0:
-            temp.append(ship)
     if len(temp) > 0:
         minerNum = miner_num()
         attackerNum = len(state['myShips']) - minerNum
@@ -34,6 +31,7 @@ def ship_tasks():  # update action
                 continue
             if attackerNum > 0:
                 attackerNum -= 1
+                #Uncomment to activate attack
                 state['attackers'].append(ship)
 
     # All ships rule based

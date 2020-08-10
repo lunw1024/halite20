@@ -37,3 +37,4 @@ def halite_per_turn(deposit, shipTime, returnTime):
         perTurn = mined / (turns+travelTime)
         maximum = perTurn if perTurn > maximum else maximum
     return maximum
+
