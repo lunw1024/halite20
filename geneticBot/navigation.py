@@ -226,10 +226,7 @@ def micro_run(s):
             if thing > maximum:
                 i = j
                 maximum = thing
-        if maximum < 10:
-            return None
-        else:
-            return direction_to(sPos,get_adjacent(sPos)[i])
+        return direction_to(sPos,get_adjacent(sPos)[i])
     else:
         return None
 
