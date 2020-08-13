@@ -630,18 +630,6 @@ def dry_move(s: Point, d: ShipAction) -> Point:
     else:
         return s
     
-# Returns opposite direction
-def opp_direction(d: ShipAction):
-    if d == ShipAction.NORTH:
-        return ShipAction.SOUTH
-    if d == ShipAction.SOUTH:
-        return ShipAction.NORTH
-    if d == ShipAction.WEST:
-        return ShipAction.EAST
-    if d == ShipAction.EAST:
-        return ShipAction.WEST
-    return None
-
 # Returns list of len 4 of adjacent points to a point
 def get_adjacent(point):
     N = state['configuration'].size
@@ -789,26 +777,22 @@ def micro_run(s):
     nextMap = state['next']
 
     if state[s]['blocked'][sPos.x][sPos.y]:
-        if s.halite > 400:
+        if s.halite > 500:
             return ShipAction.CONVERT
         score = [0,0,0,0]
-
-        # Preprocess
-        directAttackers = 0
         for i,pos in enumerate(get_adjacent(sPos)):
-            if state['enemyShipHalite'][pos.x][pos.y] < s.halite:
-                directAttackers += 1
+            if nextMap[pos.x][pos.y]:
+                score[i] = -1
+            elif state['board'].cells[pos].ship != None and state['board'].cells[pos].ship.player_id != state['me']:
+                if state['board'].cells[pos].ship.halite >= s.halite:
+                    score[i] = 100000
+                else:
+                    score[i] += state['board'].cells[pos].ship.halite 
+            else:
+                score[i] = 5000
 
-        # Calculate score
-        for i,pos in enumerate(get_adjacent(sPos)):
-            score[i] = 0
-            for j,tPos in enumerate(get_adjacent(sPos)):
-                if state['enemyShipHalite'][tPos.x][tPos.y] < s.halite:
-                    score[i] -= 0.5
-            if state['enemyShipHalite'][pos.x][pos.y] < s.halite:
-                score[i] -= 0.5 + 1/directAttackers
-            score[i] -= state['negativeControlMap'][pos.x][pos.y] * 0.01
-        # Select best position
+            score[i] += state['controlMap'][pos.x][pos.y]
+
         i, maximum = 0,0 
         for j, thing in enumerate(score):
             if thing > maximum:
@@ -1067,7 +1051,7 @@ def farm_value(cell):
 @board_agent
 def agent(board):
 
-    print("Turn =",board.step+1)
+    #("Turn =",board.step+1)
     # Init
     if board.step == 0:
         init(board)
