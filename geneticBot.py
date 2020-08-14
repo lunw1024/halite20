@@ -146,7 +146,7 @@ def attack(ships):
                 v = tv
                 finalTarget = target
         target_list.append(finalTarget)
-        action[ship] = (0, ship, finalTarget.position)
+        action[ship] = (1/dist(finalTarget.position,ship.position), ship, finalTarget.position)
 
 
 # Greedy selection 

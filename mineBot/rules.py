@@ -38,7 +38,6 @@ def attack(ships):
         target_list.append(finalTarget)
         action[ship] = (1/dist(finalTarget.position,ship.position), ship, finalTarget.position)
 
-
 # Greedy selection 
 # TODO: Improve this!
 def rule_attack_reward(s,t,target_list):
