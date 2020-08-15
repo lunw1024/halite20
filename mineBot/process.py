@@ -69,6 +69,19 @@ def encode():
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
         state[ship]['danger'] = get_danger(ship.halite)
+    temp = np.where(state['enemyShipHalite'] == 0, 1, 0)
+    adjacent = np.zeros(state['controlMap'].shape)
+    adjacent += np.roll(temp,1,axis=0)
+    adjacent += np.roll(temp,1,axis=1)
+    adjacent += np.roll(temp,-1,axis=0)
+    adjacent += np.roll(temp,-1,axis=1)
+    adjacent -= state['allyShipyard'] * 5
+    adjacent -= np.roll(state['allyShipyard'],1,axis=0)
+    adjacent -= np.roll(state['allyShipyard'],-1,axis=0)
+    adjacent -= np.roll(state['allyShipyard'],1,axis=1)
+    adjacent -= np.roll(state['allyShipyard'],-1,axis=1)
+    adjacent = np.where(adjacent>0,1,0)
+    state['blockedSafe'] = adjacent
     # Who we should attack
     if len(state['board'].opponents) > 0:
         state['killTarget'] = get_target()

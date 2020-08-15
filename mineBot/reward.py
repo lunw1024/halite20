@@ -39,7 +39,7 @@ def guard_reward(ship,cell):
         if state['currentHalite'] >= 500 and state['spawn']:
             return 0
     
-    return guardWeights[0] / (dist(closestEnemy.position,cPos) * (dist(sPos,cPos)+1))
+    return guardWeights[0] / (dist(closestEnemy.position,cPos) * min(dist(sPos,cPos),1))
  
 def mine_reward(ship,cell):
 
@@ -213,19 +213,6 @@ def ship_value():
     res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
     res += len(state['myShips'])  ** 1.5 * weights[4][2]
     return res 
-
-def farm_value(cell):
-    cPos = cell.position
-    if len(state['myShipyards']) == 0 or cell.halite == 0:
-        return 0
-
-    closest = state['closestShipyard'][cPos.x][cPos.y]
-    if dist(closest,cPos) <= 1 or dist(closest,cPos) > 4:
-        return 0
-
-    return (cell.halite**0.5) / dist(closest,cPos) ** 2
-
-
         
 
 

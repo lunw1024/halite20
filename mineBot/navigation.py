@@ -97,15 +97,8 @@ def d_move(s : Ship, t : Point, inBlocked):
         
         adjacent = np.zeros(blocked.shape)
         if state['haliteMean'] <= 25 or s in state['attackers']:
-            adjacent += np.roll(temp,1,axis=0)
-            adjacent += np.roll(temp,1,axis=1)
-            adjacent += np.roll(temp,-1,axis=0)
-            adjacent += np.roll(temp,-1,axis=1)
-            adjacent -= state['allyShipyard'] * 5
-            adjacent = np.where(adjacent>0,1,0)
-            blocked+=adjacent
+            blocked += state['blockedSafe']
         
-
     blocked = np.where(blocked>0,1,0)
 
     desired = None

@@ -7,9 +7,8 @@ action = {}  # ship -> (value,ship,target)
 farms = [] # list of cells to farm
 
 def farm_tasks():
+    build_farm()
     control_farm()
-    if len(farms) < 4 * len(state['myShipyards']):
-        build_farm()
     # Create patrols
 
 def ship_tasks():  # update action
@@ -47,9 +46,9 @@ def ship_tasks():  # update action
             continue # continue its current action
 
         # End-game return
-        if board.step > state['configuration']['episodeSteps'] - cfg.size * 1 and ship.halite > 0:
+        if board.step > state['configuration']['episodeSteps'] - cfg.size * 2 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
-        '''# End game attack
+        # End game attack
         if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0:
             if len(state['myShipyards']) > 0 and ship == closest_thing(state['myShipyards'][0].position,state['myShips']):
                 action[ship] = (0,ship,state['myShipyards'][0].position)
@@ -61,7 +60,7 @@ def ship_tasks():  # update action
             elif len(killTarget.ships) > 0:
                 target = closest_thing(ship.position,killTarget.ships)
                 action[ship] = (ship.halite, ship, target.position)
-        '''
+        
 
         if ship in action or ship in state['attackers']:
             continue
@@ -153,33 +152,23 @@ def convert_tasks():
             action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    '''
     elif v > 500 and v > state['shipValue']:
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    '''
 
     state['closestShipyard'] = closest_shipyard(targetShipyards)
 
 def build_farm():
     global farms
-    maxCell = None
-    v = 0
-
     for cell in state['board'].cells.values():
-        if cell.position in farms:
-            continue
-        a = farm_value(cell)
-        if a > v:
-            maxCell = cell
-            v = a
-
-    if maxCell != None:
-        farms.append(maxCell.position)
+        if dist(cell.position,state['closestShipyard'][cell.position.x][cell.position.y]) == 1:
+            if cell.position in farms:
+                continue
+            farms.append(cell.position)
 
 def control_farm():
     global farms
     for i,farm in enumerate(farms[:]):
-        if state['board'].cells[farm].halite < state['haliteMean'] / 1.5 or dist(farm,state['closestShipyard'][farm.x][farm.y]) > 8:
+        if dist(farm,state['closestShipyard'][farm.x][farm.y]) > 1:
             # Not worth it
             farms.remove(farm)
