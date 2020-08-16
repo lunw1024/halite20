@@ -31,7 +31,7 @@ def ship_tasks():  # update action
             if attackerNum > 0:
                 attackerNum -= 1
                 #Uncomment to activate attack
-                state['attackers'].append(ship)
+                #state['attackers'].append(ship)
 
     # All ships rule based
     for ship in me.ships:
@@ -81,9 +81,9 @@ def ship_tasks():  # update action
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
             continue
-        if i.halite < 15 and i.ship == None and i.shipyard == None:
+        '''if i.halite < 15 and i.ship == None and i.shipyard == None:
             # Spots not very interesting
-            continue
+            continue'''
         if i.ship != None and i.ship.player_id != state['me']:
             if i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
                 continue
@@ -116,6 +116,7 @@ def process_action(act):
     sPos = act[1].position
     if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
         act[1].next_action = ShipAction.CONVERT
+        state['next'][sPos.x][sPos.y] = 1
     return act[1].next_action
 
 def convert_tasks():

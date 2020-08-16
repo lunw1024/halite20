@@ -216,7 +216,7 @@ def ship_tasks():  # update action
             if attackerNum > 0:
                 attackerNum -= 1
                 #Uncomment to activate attack
-                state['attackers'].append(ship)
+                #state['attackers'].append(ship)
 
     # All ships rule based
     for ship in me.ships:
@@ -266,9 +266,9 @@ def ship_tasks():  # update action
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
             continue
-        if i.halite < 15 and i.ship == None and i.shipyard == None:
+        '''if i.halite < 15 and i.ship == None and i.shipyard == None:
             # Spots not very interesting
-            continue
+            continue'''
         if i.ship != None and i.ship.player_id != state['me']:
             if i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
                 continue
@@ -301,6 +301,7 @@ def process_action(act):
     sPos = act[1].position
     if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
         act[1].next_action = ShipAction.CONVERT
+        state['next'][sPos.x][sPos.y] = 1
     return act[1].next_action
 
 def convert_tasks():
@@ -674,8 +675,9 @@ def d_move(s : Ship, t : Point, inBlocked):
             blocked[t.x][t.y] -= 1
     elif state['board'].cells[t].shipyard != None and state['board'].cells[t].shipyard.player_id != state['me']:
         blocked[t.x][t.y] -= 1
-    # Don't ram stuff thats not the target. Unless we have an excess of ships. Or we are trying to murder a team.
+    # Don't ram stuff thats not the target.
     if state['board'].step < state['configuration']['episodeSteps'] - state['configuration'].size * 1.5:
+        blocked += np.where(state['enemyShipHalite'] <= s.halite,1,0)
         temp = np.zeros(blocked.shape)
         tot = 0
         for pos in get_adjacent(sPos):
@@ -683,13 +685,13 @@ def d_move(s : Ship, t : Point, inBlocked):
                 continue
             for tPos in get_adjacent(pos):
                 if state['enemyShipHalite'][tPos.x][tPos.y] <= s.halite or blocked[pos.x][pos.y] > 0:
+                    if tPos == t:
+                        continue
                     tot += 1
                     temp[pos.x][pos.y] = 1
                     break
-        if tot == 4:
-            for pos in get_adjacent(sPos):
-                temp[pos.x][pos.y] = 0
-        blocked += temp
+        if not(tot == 4 and state['board'].cells[sPos].halite > 0):
+            blocked += temp
     blocked = np.where(blocked>0,1,0)
 
     desired = None
@@ -837,6 +839,8 @@ def get_reward(ship,target):
         # Mining reward
         if (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
             res = mine_reward(ship,cell)
+        elif cell.shipyard is None and cell.halite == 0 and (cell.ship is None or cell.ship.player_id == state['me']):
+            res = control_reward(ship,cell)
         elif cell.ship is not None and cell.ship.player_id != state['me']:
             res = attack_reward(ship,cell)
         elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
@@ -845,6 +849,20 @@ def get_reward(ship,target):
             res = attack_reward(ship,cell)
     elif target[1] == 'guard':
         res = guard_reward(ship,cell)
+    return res
+
+def control_reward(ship,cell):
+    sPos = ship.position
+    cPos = cell.position
+
+    if ship.halite > 0:
+        return 0
+    res = 10
+    for pos in get_adjacent(cPos):
+        tCell = state['board'].cells[pos]
+        if tCell.halite > 0:
+            res += 5
+    res -= dist(sPos,cPos) + dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
     return res
 
 def guard_reward(ship,cell):

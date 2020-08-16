@@ -12,6 +12,8 @@ def get_reward(ship,target):
         # Mining reward
         if (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
             res = mine_reward(ship,cell)
+        elif cell.shipyard is None and cell.halite == 0 and (cell.ship is None or cell.ship.player_id == state['me']):
+            res = control_reward(ship,cell)
         elif cell.ship is not None and cell.ship.player_id != state['me']:
             res = attack_reward(ship,cell)
         elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
@@ -20,6 +22,20 @@ def get_reward(ship,target):
             res = attack_reward(ship,cell)
     elif target[1] == 'guard':
         res = guard_reward(ship,cell)
+    return res
+
+def control_reward(ship,cell):
+    sPos = ship.position
+    cPos = cell.position
+
+    if ship.halite > 0:
+        return 0
+    res = 10
+    for pos in get_adjacent(cPos):
+        tCell = state['board'].cells[pos]
+        if tCell.halite > 0:
+            res += 5
+    res -= dist(sPos,cPos) + dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
     return res
 
 def guard_reward(ship,cell):
