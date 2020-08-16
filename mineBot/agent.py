@@ -16,8 +16,7 @@ def agent(board):
     convert_tasks()
 
     # Farm
-    farm_tasks()
-
+    #farm_tasks()
 
     # Ship
     ship_tasks()

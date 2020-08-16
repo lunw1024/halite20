@@ -39,7 +39,7 @@ def guard_reward(ship,cell):
         if state['currentHalite'] >= 500 and state['spawn']:
             return 0
     
-    return guardWeights[0] / (dist(closestEnemy.position,cPos) * min(dist(sPos,cPos),1))
+    return guardWeights[0] / (dist(closestEnemy.position,cPos) * max(dist(sPos,cPos),1))
  
 def mine_reward(ship,cell):
 
@@ -60,10 +60,8 @@ def mine_reward(ship,cell):
         # Farming!
         if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
             return 0
+        
         if shipyardDist >= 3:
-            # Don't mine if it will put ship in danger
-            if get_danger(ship.halite+cell.halite*0.25)[cPos.x][cPos.y] > 1:
-                return 0
             # Don't mine if enemy near
             for pos in get_adjacent(sPos):
                 if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
@@ -91,10 +89,6 @@ def mine_reward(ship,cell):
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
     res = halitePerTurn + spreadGain
 
-    # Penalty 
-    if cell.ship != None and not cell.ship is ship:
-        res = res / 2
-
     if state[ship]['danger'][cPos.x][cPos.y] > 1:
         res -= mineWeights[3] ** state[ship]['danger'][cPos.x][cPos.y]
         
@@ -111,10 +105,6 @@ def attack_reward(ship,cell):
     if dist(sPos,cPos) > 6:
         return 0
 
-    # Defend the farm!
-    if cPos in farms:
-        return cell.halite - d
-
     res = 0
     # It's a ship!
     if cell.ship != None:
@@ -126,9 +116,10 @@ def attack_reward(ship,cell):
                     return 0
 
         if cell.ship.halite > ship.halite:
+            # Defend the farm!
+            if cPos in farms:
+                return cell.halite - d
             res = max([cell.halite**(attackWeights[4]),state['controlMap'][cPos.x][cPos.y]*attackWeights[2]]) - d*attackWeights[3]
-        elif len(state['myShips']) > 15:
-            res = state['controlMap'][cPos.x][cPos.y] * attackWeights[5] - d**2
         if ship.halite != 0:
             res = res / 3
     

@@ -5,6 +5,8 @@ def miner_num():
             return min(len(state['myShips']),int(state['haliteMean'] / 8 + len(state['myShipyards'])))
         else:
             return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
+    elif state['board'].step > 370:
+        return len(state['myShips'])
     else:
         return len(state['myShips']) * 0.8
 

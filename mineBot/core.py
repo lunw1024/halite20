@@ -31,7 +31,7 @@ def ship_tasks():  # update action
             if attackerNum > 0:
                 attackerNum -= 1
                 #Uncomment to activate attack
-                #state['attackers'].append(ship)
+                state['attackers'].append(ship)
 
     # All ships rule based
     for ship in me.ships:
@@ -40,7 +40,7 @@ def ship_tasks():  # update action
             if board.cells[target].ship != None:
                 targetShip = board.cells[target].ship
                 if targetShip.player.id != state['me'] and targetShip.halite < ship.halite:
-                    action[ship] = (INF*2+ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
+                    action[ship] = (INF*2+state[ship]['danger'][ship.position.x][ship.position.y], ship, state['closestShipyard'][ship.position.x][ship.position.y])
 
         if ship in action:
             continue # continue its current action
@@ -50,6 +50,7 @@ def ship_tasks():  # update action
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
         # End game attack
         if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0:
+            #print(ship.position)
             if len(state['myShipyards']) > 0 and ship == closest_thing(state['myShipyards'][0].position,state['myShips']):
                 action[ship] = (0,ship,state['myShipyards'][0].position)
                 continue
@@ -61,7 +62,7 @@ def ship_tasks():  # update action
                 target = closest_thing(ship.position,killTarget.ships)
                 action[ship] = (ship.halite, ship, target.position)
         
-
+        
         if ship in action or ship in state['attackers']:
             continue
 
@@ -98,7 +99,6 @@ def ship_tasks():  # update action
             action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
         elif task[1] == 'guard':
             action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
-
     # Process actions
     actions = list(action.values())
     actions.sort(reverse=True, key=lambda x: x[0])

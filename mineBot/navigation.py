@@ -92,13 +92,20 @@ def d_move(s : Ship, t : Point, inBlocked):
         blocked[t.x][t.y] -= 1
     # Don't ram stuff thats not the target. Unless we have an excess of ships. Or we are trying to murder a team.
     if state['board'].step < state['configuration']['episodeSteps'] - state['configuration'].size * 1.5:
-        temp = np.where(state['enemyShipHalite'] == s.halite, 1, 0)
+        temp = np.zeros(blocked.shape)
+        tot = 0
+        for pos in get_adjacent(sPos):
+            if state['allyShipyard'][pos.x][pos.y]:
+                continue
+            for tPos in get_adjacent(pos):
+                if state['enemyShipHalite'][tPos.x][tPos.y] <= s.halite or blocked[pos.x][pos.y] > 0:
+                    tot += 1
+                    temp[pos.x][pos.y] = 1
+                    break
+        if tot == 4:
+            for pos in get_adjacent(sPos):
+                temp[pos.x][pos.y] = 0
         blocked += temp
-        
-        adjacent = np.zeros(blocked.shape)
-        if state['haliteMean'] <= 25 or s in state['attackers']:
-            blocked += state['blockedSafe']
-        
     blocked = np.where(blocked>0,1,0)
 
     desired = None
