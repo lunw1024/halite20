@@ -18,7 +18,6 @@ def agent(board):
     # Farm
     #farm_tasks()
 
-
     # Ship
     ship_tasks()
 

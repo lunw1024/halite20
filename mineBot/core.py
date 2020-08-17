@@ -7,9 +7,8 @@ action = {}  # ship -> (value,ship,target)
 farms = [] # list of cells to farm
 
 def farm_tasks():
+    build_farm()
     control_farm()
-    if len(farms) < 4 * len(state['myShipyards']):
-        build_farm()
     # Create patrols
 
 def ship_tasks():  # update action
@@ -32,7 +31,10 @@ def ship_tasks():  # update action
             if attackerNum > 0:
                 attackerNum -= 1
                 #Uncomment to activate attack
-                #state['attackers'].append(ship)
+                state['attackers'].append(ship)
+
+
+    #target_based_attack()
 
     # All ships rule based
     for ship in me.ships:
@@ -41,16 +43,17 @@ def ship_tasks():  # update action
             if board.cells[target].ship != None:
                 targetShip = board.cells[target].ship
                 if targetShip.player.id != state['me'] and targetShip.halite < ship.halite:
-                    action[ship] = (INF*2+ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
+                    action[ship] = (INF*2+state[ship]['danger'][ship.position.x][ship.position.y], ship, state['closestShipyard'][ship.position.x][ship.position.y])
 
         if ship in action:
             continue # continue its current action
 
         # End-game return
-        if board.step > state['configuration']['episodeSteps'] - cfg.size * 1 and ship.halite > 0:
+        if board.step > state['configuration']['episodeSteps'] - cfg.size * 2 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
-        '''# End game attack
+        # End game attack
         if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0:
+            #print(ship.position)
             if len(state['myShipyards']) > 0 and ship == closest_thing(state['myShipyards'][0].position,state['myShips']):
                 action[ship] = (0,ship,state['myShipyards'][0].position)
                 continue
@@ -61,8 +64,8 @@ def ship_tasks():  # update action
             elif len(killTarget.ships) > 0:
                 target = closest_thing(ship.position,killTarget.ships)
                 action[ship] = (ship.halite, ship, target.position)
-        '''
-
+        
+        
         if ship in action or ship in state['attackers']:
             continue
 
@@ -81,9 +84,9 @@ def ship_tasks():  # update action
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
             continue
-        if i.halite < 15 and i.ship == None and i.shipyard == None:
+        '''if i.halite < 15 and i.ship == None and i.shipyard == None:
             # Spots not very interesting
-            continue
+            continue'''
         if i.ship != None and i.ship.player_id != state['me']:
             if i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
                 continue
@@ -99,7 +102,6 @@ def ship_tasks():  # update action
             action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
         elif task[1] == 'guard':
             action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
-
     # Process actions
     actions = list(action.values())
     actions.sort(reverse=True, key=lambda x: x[0])
@@ -117,6 +119,7 @@ def process_action(act):
     sPos = act[1].position
     if state['closestShipyard'][sPos.x][sPos.y] == sPos and state['board'].cells[sPos].shipyard == None:
         act[1].next_action = ShipAction.CONVERT
+        state['next'][sPos.x][sPos.y] = 1
     return act[1].next_action
 
 def convert_tasks():
@@ -153,33 +156,23 @@ def convert_tasks():
             action[closest] = (math.inf, closest, Point(tx, ty))
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    '''
     elif v > 500 and v > state['shipValue']:
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
-    '''
 
     state['closestShipyard'] = closest_shipyard(targetShipyards)
 
 def build_farm():
     global farms
-    maxCell = None
-    v = 0
-
     for cell in state['board'].cells.values():
-        if cell.position in farms:
-            continue
-        a = farm_value(cell)
-        if a > v:
-            maxCell = cell
-            v = a
-
-    if maxCell != None:
-        farms.append(maxCell.position)
+        if dist(cell.position,state['closestShipyard'][cell.position.x][cell.position.y]) == 1:
+            if cell.position in farms:
+                continue
+            farms.append(cell.position)
 
 def control_farm():
     global farms
     for i,farm in enumerate(farms[:]):
-        if state['board'].cells[farm].halite < state['haliteMean'] / 1.5 or dist(farm,state['closestShipyard'][farm.x][farm.y]) > 8:
+        if dist(farm,state['closestShipyard'][farm.x][farm.y]) > 1:
             # Not worth it
             farms.remove(farm)

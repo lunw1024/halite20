@@ -21,7 +21,7 @@ def encode():
     temp = state['haliteSpread'].copy()
     for i in range(1,5):
         state['haliteSpread'] += np.roll(temp,i,axis=1) * 0.5**i
-        state['haliteSpread'] += np.roll(temp,-i,axis=1) *  0.5**i
+        state['haliteSpread'] += np.roll(temp,-i,axis=1) * 0.5**i
     # Ships
     state['shipMap'] = np.zeros((state['playerNum'], N, N))
     state['enemyShips'] = []
