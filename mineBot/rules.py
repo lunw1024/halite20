@@ -73,3 +73,21 @@ def rule_attack_reward(s,t,target_list):
     '''
 
     return res
+
+
+###################
+# target based attack system
+###################
+
+'''
+def target_based_attack():
+    # actions[ship] = (priority: int, ship: Ship, target: Point)
+    params = weights[7] # <- np.array
+    # target selection
+    targets = "all enemy ships with cargo > 0"
+    sorted(targets, key="cargo")
+
+    # assignment
+    for target in targets:
+        actions["all ally ships with cargo < target.cargo" in area5x5(target)] = ("priority", "ship", "target.pos")
+'''

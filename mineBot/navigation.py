@@ -1,7 +1,15 @@
 # Direction from point s to point t
 def direction_to(s: Point, t: Point) -> ShipAction:
     candidate = directions_to(s, t)
-    return random.choice(candidate) if len(candidate) > 0 else None
+    if len(candidate) == 2:
+        if dist(Point(s.x,0),point(t.x,0)) > dist(Point(0,s.y),Point(0,t.y)):
+            return candidate[1]
+        else:
+            return candidate[0]
+    elif len(candidate) == 1:
+        random.choice(candidate)
+    else:
+        return None
 
 # Distance from point a to b
 def dist(a: Point, b: Point) -> int:
@@ -69,12 +77,13 @@ def safe_naive(s,t,blocked):
             return direction
     return None
 
-def move_cost(s : Ship, t : Point):
+def move_cost(s : Ship, t : Point, p : Point):
     navigationWeights = weights[6]
-    cost = state[s]['danger'][t.x][t.y] * navigationWeights[1]
-    for pos in get_adjacent(t):
-        if state['enemyShipHalite'][pos.x][pos.y] == s.halite:
-            cost += navigationWeights[0]
+    cost = state[s]['danger'][p.x][p.y] * navigationWeights[1]
+    c = state['board'].cells[p]
+    if c.ship != None and c.ship.player_id != state['me']:
+        if direction_to(t,s.position) != direction_to(t,p):
+            cost += 1
     return cost
 
 # Dijkstra's movement
@@ -101,12 +110,15 @@ def d_move(s : Ship, t : Point, inBlocked):
             for tPos in get_adjacent(pos):
                 if state['enemyShipHalite'][tPos.x][tPos.y] <= s.halite or blocked[pos.x][pos.y] > 0:
                     if tPos == t:
-                        continue
+                        break
                     tot += 1
                     temp[pos.x][pos.y] = 1
-                    break
+        if state['allyShipyard'][sPos.x][sPos.y]:
+            temp[sPos.x][sPos.y] = 0
+        
         if not(tot == 4 and state['board'].cells[sPos].halite > 0):
             blocked += temp
+            
     blocked = np.where(blocked>0,1,0)
 
     desired = None
@@ -149,7 +161,7 @@ def d_move(s : Ship, t : Point, inBlocked):
             for processPoint in get_adjacent(currentPoint):
                 if blocked[processPoint.x][processPoint.y] or processPoint in calcDist: 
                     continue
-                calcDist[processPoint] = calcDist[currentPoint] + 1 + move_cost(s,processPoint)
+                calcDist[processPoint] = calcDist[currentPoint] + 1 + move_cost(s,t,processPoint)
                 priority = calcDist[processPoint]
                 pqMap[priority] = pqMap.get(priority,[])
                 pqMap[priority].append(processPoint)

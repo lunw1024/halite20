@@ -4,7 +4,8 @@ weights='''1.065318617455976 542.1433864410643 0.7511632555608448 0.694589301055
 0.32917669267944993 0.12670831197102922
 1 -3.1819320805078153 -3
 112.69692418951784
-3 0.1'''
+3 0.1
+5'''
 # Contains all dependencies used in bot
 # First file loaded
 
@@ -31,6 +32,7 @@ state = {}
         # 4 - spawn weights
         # 5 - guard weights
         # 6 - navigation weights
+        # 7 - target attack weights
     
 temp = []
 weights = weights.split('\n')
@@ -186,6 +188,24 @@ def rule_attack_reward(s,t,target_list):
     return res
 
 
+###################
+# target based attack system
+###################
+
+'''
+def target_based_attack():
+    # actions[ship] = (priority: int, ship: Ship, target: Point)
+    params = weights[7] # <- np.array
+    # target selection
+    targets = "all enemy ships with cargo > 0"
+    sorted(targets, key="cargo")
+
+    # assignment
+    for target in targets:
+        actions["all ally ships with cargo < target.cargo" in area5x5(target)] = ("priority", "ship", "target.pos")
+'''
+
+
 # Core strategy
 
 action = {}  # ship -> (value,ship,target)
@@ -216,7 +236,10 @@ def ship_tasks():  # update action
             if attackerNum > 0:
                 attackerNum -= 1
                 #Uncomment to activate attack
-                #state['attackers'].append(ship)
+                state['attackers'].append(ship)
+
+
+    #target_based_attack()
 
     # All ships rule based
     for ship in me.ships:
@@ -459,7 +482,7 @@ def encode():
     temp = state['haliteSpread'].copy()
     for i in range(1,5):
         state['haliteSpread'] += np.roll(temp,i,axis=1) * 0.5**i
-        state['haliteSpread'] += np.roll(temp,-i,axis=1) *  0.5**i
+        state['haliteSpread'] += np.roll(temp,-i,axis=1) * 0.5**i
     # Ships
     state['shipMap'] = np.zeros((state['playerNum'], N, N))
     state['enemyShips'] = []
@@ -586,7 +609,15 @@ def get_target():
 # Direction from point s to point t
 def direction_to(s: Point, t: Point) -> ShipAction:
     candidate = directions_to(s, t)
-    return random.choice(candidate) if len(candidate) > 0 else None
+    if len(candidate) == 2:
+        if dist(Point(s.x,0),point(t.x,0)) > dist(Point(0,s.y),Point(0,t.y)):
+            return candidate[1]
+        else:
+            return candidate[0]
+    elif len(candidate) == 1:
+        random.choice(candidate)
+    else:
+        return None
 
 # Distance from point a to b
 def dist(a: Point, b: Point) -> int:
@@ -654,12 +685,13 @@ def safe_naive(s,t,blocked):
             return direction
     return None
 
-def move_cost(s : Ship, t : Point):
+def move_cost(s : Ship, t : Point, p : Point):
     navigationWeights = weights[6]
-    cost = state[s]['danger'][t.x][t.y] * navigationWeights[1]
-    for pos in get_adjacent(t):
-        if state['enemyShipHalite'][pos.x][pos.y] == s.halite:
-            cost += navigationWeights[0]
+    cost = state[s]['danger'][p.x][p.y] * navigationWeights[1]
+    c = state['board'].cells[p]
+    if c.ship != None and c.ship.player_id != state['me']:
+        if direction_to(t,s.position) != direction_to(t,p):
+            cost += 1
     return cost
 
 # Dijkstra's movement
@@ -686,12 +718,15 @@ def d_move(s : Ship, t : Point, inBlocked):
             for tPos in get_adjacent(pos):
                 if state['enemyShipHalite'][tPos.x][tPos.y] <= s.halite or blocked[pos.x][pos.y] > 0:
                     if tPos == t:
-                        continue
+                        break
                     tot += 1
                     temp[pos.x][pos.y] = 1
-                    break
+        if state['allyShipyard'][sPos.x][sPos.y]:
+            temp[sPos.x][sPos.y] = 0
+        
         if not(tot == 4 and state['board'].cells[sPos].halite > 0):
             blocked += temp
+            
     blocked = np.where(blocked>0,1,0)
 
     desired = None
@@ -734,7 +769,7 @@ def d_move(s : Ship, t : Point, inBlocked):
             for processPoint in get_adjacent(currentPoint):
                 if blocked[processPoint.x][processPoint.y] or processPoint in calcDist: 
                     continue
-                calcDist[processPoint] = calcDist[currentPoint] + 1 + move_cost(s,processPoint)
+                calcDist[processPoint] = calcDist[currentPoint] + 1 + move_cost(s,t,processPoint)
                 priority = calcDist[processPoint]
                 pqMap[priority] = pqMap.get(priority,[])
                 pqMap[priority].append(processPoint)
