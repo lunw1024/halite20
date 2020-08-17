@@ -32,7 +32,7 @@ def ship_tasks():  # update action
             if attackerNum > 0:
                 attackerNum -= 1
                 #Uncomment to activate attack
-                state['attackers'].append(ship)
+                #state['attackers'].append(ship)
 
     # All ships rule based
     for ship in me.ships:

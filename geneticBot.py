@@ -107,7 +107,6 @@ def halite_per_turn(deposit, shipTime, returnTime):
         maximum = perTurn if perTurn > maximum else maximum
     return maximum
 
-
 def miner_num():
     
     if state['board'].step < 300:
@@ -117,36 +116,56 @@ def miner_num():
             return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
     else:
         return len(state['myShips']) * 0.8
-
+'''
+def get_besiege():
+    global state
+    targets = []
+    for x in range(0,21,2):
+        for y in range(0,21,2):
+            halite = 0
+            for i in range(x,x+5):
+                for j in range(y,y+5):
+                    if 0 < state['enemyShipHalite'][i%21][j%21] <= 5000:
+                        halite+=state['enemyShipHalite'][i%21][j%21]+500
+            targets.append([x,y,halite])
+    targets = targets.sort(key = lambda x: x[2])
+    return targets[0]
+'''
 def get_targets():
     targets = []
     for ship in state['enemyShips']:
         if ship.halite != 0:
             targets.append(ship)
-    return targets
+    targets = targets.sort(key = lambda x:x.halite,reverse = True)
+    if targets != None:
+        return targets[0]
+    return []
+
+'''
+def greedy_selection(ship):
+# Force return
+    if ship.halite > 0:
+        action[ship] = (INF, ship, state['closestShipyard'][ship.position.x][ship.position.y])            continue
+        # Attack
+    finalTarget = targets[0]
+    v = rule_attack_reward(ship,finalTarget,target_list)
+    for target in targets:
+        tv = rule_attack_reward(ship,target,target_list)
+        if tv > v:
+            v = tv
+            finalTarget = target
+    #target_list.append(finalTarget)
+    action[ship] = (1/dist(finalTarget.position,ship.position), ship, finalTarget.position)
+'''
 
 def attack(ships):
     global action
-
     # Select potential targets
-    targets = get_targets()
-    # Greedy selection
-    target_list = []
-    for ship in ships:
-        # Force return
-        if ship.halite > 0:
-            action[ship] = (INF, ship, state['closestShipyard'][ship.position.x][ship.position.y])
-            continue
-        # Attack
-        finalTarget = targets[0]
-        v = rule_attack_reward(ship,finalTarget,target_list)
-        for target in targets:
-            tv = rule_attack_reward(ship,target,target_list)
-            if tv > v:
-                v = tv
-                finalTarget = target
-        target_list.append(finalTarget)
-        action[ship] = (1/dist(finalTarget.position,ship.position), ship, finalTarget.position)
+    target = get_targets()
+    if len(target)>0:
+        for ship in state['myShips']:
+            if target.position.x-5<=ship.position.x<=target.position.x+5 and target.position.y-5<=ship.position.y<=target.position.y+5 and ship.halite<target.halite:
+                action[ship] = (INF, ship, target.position)
 
 
 # Greedy selection 
@@ -182,6 +201,9 @@ def rule_attack_reward(s,t,target_list):
     '''
 
     return res
+
+
+
 
 
 # Core strategy
@@ -630,18 +652,6 @@ def dry_move(s: Point, d: ShipAction) -> Point:
     else:
         return s
     
-# Returns opposite direction
-def opp_direction(d: ShipAction):
-    if d == ShipAction.NORTH:
-        return ShipAction.SOUTH
-    if d == ShipAction.SOUTH:
-        return ShipAction.NORTH
-    if d == ShipAction.WEST:
-        return ShipAction.EAST
-    if d == ShipAction.EAST:
-        return ShipAction.WEST
-    return None
-
 # Returns list of len 4 of adjacent points to a point
 def get_adjacent(point):
     N = state['configuration'].size
@@ -683,7 +693,7 @@ def d_move(s : Ship, t : Point, inBlocked):
         temp = np.where(state['enemyShipHalite'] == s.halite, 1, 0)
         blocked += temp
         
-        if state['haliteMean'] <= 25 or s in state['attackers']:
+        if state['haliteMean'] <= 13:
             blocked+= np.roll(temp,1,axis=0)
             blocked+= np.roll(temp,1,axis=1)
             blocked+= np.roll(temp,-1,axis=0)
@@ -789,32 +799,31 @@ def micro_run(s):
     nextMap = state['next']
 
     if state[s]['blocked'][sPos.x][sPos.y]:
-        if s.halite > 400:
+        if s.halite > 500:
             return ShipAction.CONVERT
         score = [0,0,0,0]
-
-        # Preprocess
-        directAttackers = 0
         for i,pos in enumerate(get_adjacent(sPos)):
-            if state['enemyShipHalite'][pos.x][pos.y] < s.halite:
-                directAttackers += 1
+            if nextMap[pos.x][pos.y]:
+                score[i] = -1
+            elif state['board'].cells[pos].ship != None and state['board'].cells[pos].ship.player_id != state['me']:
+                if state['board'].cells[pos].ship.halite >= s.halite:
+                    score[i] = 100000
+                else:
+                    score[i] += state['board'].cells[pos].ship.halite 
+            else:
+                score[i] = 5000
 
-        # Calculate score
-        for i,pos in enumerate(get_adjacent(sPos)):
-            score[i] = 0
-            for j,tPos in enumerate(get_adjacent(sPos)):
-                if state['enemyShipHalite'][tPos.x][tPos.y] < s.halite:
-                    score[i] -= 0.5
-            if state['enemyShipHalite'][pos.x][pos.y] < s.halite:
-                score[i] -= 0.5 + 1/directAttackers
-            score[i] -= state['negativeControlMap'][pos.x][pos.y] * 0.01
-        # Select best position
+            score[i] += state['controlMap'][pos.x][pos.y]
+
         i, maximum = 0,0 
         for j, thing in enumerate(score):
             if thing > maximum:
                 i = j
                 maximum = thing
-        return direction_to(sPos,get_adjacent(sPos)[i])
+        if maximum < 10:
+            return None
+        else:
+            return direction_to(sPos,get_adjacent(sPos)[i])
     else:
         return None
 
