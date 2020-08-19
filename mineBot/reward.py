@@ -25,16 +25,19 @@ def get_reward(ship,target):
     return res
 
 def control_reward(ship,cell):
+
+    return 0
+    
     sPos = ship.position
     cPos = cell.position
 
-    if ship.halite > 0:
+    if ship.halite > 0 or dist(cPos,state['closestShipyard'][cPos.x][cPos.y]) <= 2:
         return 0
-    res = 10
+    res = 0
     for pos in get_adjacent(cPos):
         tCell = state['board'].cells[pos]
         if tCell.halite > 0:
-            res += 5
+            res += 3.5
     res -= dist(sPos,cPos) + dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
     return res
 
@@ -63,35 +66,44 @@ def mine_reward(ship,cell):
     sPos = ship.position
     cPos = cell.position
     cHalite = cell.halite
+    cell
     shipyardDist = dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
+
+    if state['generalDangerMap'][cPos.x][cPos.y] > 1.5 and state['trapped'][state['me']][cPos.x][cPos.y]:
+        return 0
 
     # Halite per turn
     halitePerTurn = 0
 
-    # Current cell
-    if sPos == cPos:
+    # Occupied cell
+    if cell.ship != None and cell.ship.player_id == state['me'] and cell.ship.halite <= ship.halite:
         # Current cell multiplier
-        if cHalite > state['haliteMean'] * mineWeights[2] and cHalite > 10 and ship.halite > 0:
-            cHalite = cHalite * mineWeights[1]
+        if sPos == cPos:
+            if cHalite > state['haliteMean'] * mineWeights[2] and cHalite > 10 and ship.halite > 0:
+                cHalite = cHalite * mineWeights[1]
+
         # Farming!
         if cPos in farms and cell.halite < min(500,(state['board'].step + 10*15)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
             return 0
         
         if shipyardDist >= 3:
             # Don't mine if enemy near
-            for pos in get_adjacent(sPos):
+            for pos in get_adjacent(cPos):
                 if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
                     return 0
+            
+            if state['trapped'][state['me']][cPos.x][cPos.y]:
+                return 0
     
     # Dangerous area
     cHalite += state['negativeControlMap'][cPos.x][cPos.y] * mineWeights[4]
     
-    # Nearby 
-    if cPos in get_adjacent(sPos) and state['controlMap'][cPos.x][cPos.y] < 0.5:
-        # Try to reduce collision num
-        for pos in get_adjacent(cPos):
-            if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
-                return 0
+    if state['enemyShipHalite'][cPos.x][cPos.y] <= ship.halite:
+        return 0
+    for pos in get_adjacent(cPos):
+        if state['enemyShipHalite'][pos.x][pos.y] <= ship.halite:
+            return 0
+        
     '''
     if state['currentHalite'] > 1000: # Do we need some funds to do stuff?
         # No
@@ -105,7 +117,7 @@ def mine_reward(ship,cell):
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]
     res = halitePerTurn + spreadGain
 
-    if state[ship]['danger'][cPos.x][cPos.y] > 1:
+    if state[ship]['danger'][cPos.x][cPos.y] > 1.3:
         res -= mineWeights[3] ** state[ship]['danger'][cPos.x][cPos.y]
         
     return res
@@ -136,6 +148,8 @@ def attack_reward(ship,cell):
             if cPos in farms:
                 return cell.halite - d
             res = max([cell.halite**(attackWeights[4]),state['controlMap'][cPos.x][cPos.y]*attackWeights[2]]) - d*attackWeights[3]
+        elif len(state['myShips']) > 15:
+            res = state['controlMap'][cPos.x][cPos.y] * 100 / d**2
         if ship.halite != 0:
             res = res / 3
     

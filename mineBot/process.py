@@ -58,17 +58,25 @@ def encode():
     state['controlMap'] = control_map(state['ally']-state['enemy'],state['allyShipyard']-state['enemyShipyard'])
     state['negativeControlMap'] = control_map(-state['enemy'],-state['enemyShipyard'])
     state['positiveControlMap'] = control_map(state['ally'],state['allyShipyard'])
-    #Enemy ship labeled by halite. If none, infinity
+    # Enemy ship labeled by halite. If none, infinity
     state['enemyShipHalite'] = np.zeros((N, N))
+    state['shipHalite'] = np.zeros((state['playerNum'], N, N))
+    state['shipHalite'] += np.Infinity
     state['enemyShipHalite'] += np.Infinity
     for ship in state['ships']:
+        state['shipHalite'][ship.player.id][ship.position.x][ship.position.y] = ship.halite
         if ship.player.id != state['me']:
             state['enemyShipHalite'][ship.position.x][ship.position.y] = ship.halite
+    # Immediate danger map
+    state['trapped'] = np.zeros((state['playerNum'], N, N))
+    for player in range(state['playerNum']):
+        state['trapped'][player] = get_immediate_danger(player)
     # Avoidance map (Places not to go for each ship)
     for ship in state['myShips']:
         state[ship] = {}
         state[ship]['blocked'] = get_avoidance(ship)
         state[ship]['danger'] = get_danger(ship.halite)
+    state['generalDangerMap'] = get_danger(1)
     # Who we should attack
     if len(state['board'].opponents) > 0:
         state['killTarget'] = get_target()
@@ -102,7 +110,6 @@ def get_danger(s):
         dangerMap += np.roll(temp,-i,axis=1) * 0.7**i
     return dangerMap
     
-
 def closest_shipyard(shipyards):
     N = state['configuration'].size
     res = [[None for y in range(N)]for x in range(N)]
@@ -129,7 +136,6 @@ def control_map(ships,shipyards):
         
         return res + shipyards
         
-
 def get_target():
     board = state['board']
     me = board.current_player
@@ -144,3 +150,28 @@ def get_target():
             v = value
             idx = i
     return board.opponents[idx]
+
+def get_immediate_danger(team):
+    res = np.zeros((state['configuration'].size,state['configuration'].size))
+    enemy = np.zeros((state['configuration'].size,state['configuration'].size))
+    for i in range(state['playerNum']):
+        if i == team:
+            continue
+        enemy += np.where(state['shipHalite'][i]==0,1,0)
+    for axis in range(2):
+        secondAxis = 0 if axis == 1 else 1
+        for direction in [-1,1]:
+            N = enemy.copy()
+            N += np.roll(enemy,direction,axis=axis)
+            N += np.roll(np.roll(enemy,direction,axis=axis),1,axis=secondAxis)
+            N += np.roll(np.roll(enemy,direction,axis=axis),-1,axis=secondAxis)
+            N += np.roll(N,direction,axis=axis)
+            N += np.roll(N,direction,axis=axis)
+            '''N += np.roll(np.roll(enemy,direction*3,axis=axis),2,axis=secondAxis)
+            N += np.roll(np.roll(enemy,direction*3,axis=axis),-2,axis=secondAxis)'''
+            res += np.where(N>0,1,0)
+    danger = np.where(res>=4,1,0)
+    return danger
+            
+
+        

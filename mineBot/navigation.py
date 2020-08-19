@@ -84,6 +84,10 @@ def move_cost(s : Ship, t : Point, p : Point):
     if c.ship != None and c.ship.player_id != state['me']:
         if direction_to(t,s.position) != direction_to(t,p):
             cost += 1
+    
+    if s.halite > 0 and state['trapped'][state['me']][s.position.x][s.position.y]:
+        cost += 5
+    
     return cost
 
 # Dijkstra's movement
@@ -104,19 +108,22 @@ def d_move(s : Ship, t : Point, inBlocked):
         blocked += np.where(state['enemyShipHalite'] <= s.halite,1,0)
         temp = np.zeros(blocked.shape)
         tot = 0
+        
         for pos in get_adjacent(sPos):
             if state['allyShipyard'][pos.x][pos.y]:
                 continue
-            for tPos in get_adjacent(pos):
-                if state['enemyShipHalite'][tPos.x][tPos.y] <= s.halite or blocked[pos.x][pos.y] > 0:
-                    if tPos == t:
+            if blocked[pos.x][pos.y] > 0:
+                tot += 1
+            else:
+                for tPos in get_adjacent(pos):
+                    if state['enemyShipHalite'][tPos.x][tPos.y] <= s.halite:
+                        if tPos == t:
+                            continue
+                        tot += 1
+                        temp[pos.x][pos.y] = 1
                         break
-                    tot += 1
-                    temp[pos.x][pos.y] = 1
-        if state['allyShipyard'][sPos.x][sPos.y]:
-            temp[sPos.x][sPos.y] = 0
         
-        if not(tot == 4 and state['board'].cells[sPos].halite > 0):
+        if not(tot == 4 and (state['board'].cells[sPos].halite > 0 or nextMap[sPos.x][sPos.y])):
             blocked += temp
             
     blocked = np.where(blocked>0,1,0)
@@ -130,7 +137,7 @@ def d_move(s : Ship, t : Point, inBlocked):
         if blocked[t.x][t.y]:
             for processPoint in get_adjacent(sPos):
                 if not blocked[processPoint.x][processPoint.y]:
-                    nextMap[processPoint.x][processPoint.y] = 1
+                    #nextMap[processPoint.x][processPoint.y] = 1
                     desired = direction_to(sPos,processPoint)
                     t = processPoint
             if desired == None:
@@ -179,7 +186,7 @@ def d_move(s : Ship, t : Point, inBlocked):
                 #Random move
                 for processPoint in get_adjacent(sPos):
                     if not blocked[processPoint.x][processPoint.y]:
-                        nextMap[processPoint.x][processPoint.y] = 1
+                        #nextMap[processPoint.x][processPoint.y] = 1
                         t = processPoint
                         desired = direction_to(sPos,processPoint)
                 
@@ -236,7 +243,7 @@ def micro_run(s):
                     score[i] -= 0.5
             if state['enemyShipHalite'][pos.x][pos.y] < s.halite:
                 score[i] -= 0.5 + 1/directAttackers
-            score[i] -= state['negativeControlMap'][pos.x][pos.y] * 0.01
+            score[i] += state['negativeControlMap'][pos.x][pos.y] * 0.01
         # Select best position
         i, maximum = 0,0 
         for j, thing in enumerate(score):

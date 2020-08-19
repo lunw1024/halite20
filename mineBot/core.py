@@ -31,14 +31,29 @@ def ship_tasks():  # update action
             if attackerNum > 0:
                 attackerNum -= 1
                 #Uncomment to activate attack
-                state['attackers'].append(ship)
+                #state['attackers'].append(ship)
 
 
     #target_based_attack()
 
+    '''
+    for ship in state['ships']:
+        if ship.player_id != state['me']:
+            if state['trapped'][ship.player_id][ship.position.x][ship.position.y]:
+                print(ship.position)
+    '''
+
     # All ships rule based
     for ship in me.ships:
-        # Flee
+
+        '''
+         # Flee
+        if state['trapped'][state['me']][ship.position.x][ship.position.y] and ship.halite > 0:
+            action[ship] = (INF*2+state[ship]['danger'][ship.position.x][ship.position.y], ship, state['closestShipyard'][ship.position.x][ship.position.y])
+        '''
+        if ship in action:
+            continue 
+
         for target in get_adjacent(ship.position):
             if board.cells[target].ship != None:
                 targetShip = board.cells[target].ship
@@ -74,7 +89,7 @@ def ship_tasks():  # update action
     # Rule based: Attackers
     #print(len(state['myShips']))
     #print(len(state['attackers']))
-    attack(state['attackers'])
+    #attack(state['attackers'])
 
     # Reward based: Mining + Guarding + Control
     targets = [] # (cell, type)
@@ -99,9 +114,14 @@ def ship_tasks():  # update action
     for r, c in zip(rows, cols):
         task = targets[c]
         if task[1] == 'cell':
-            action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
+            cell = cell = targets[c][0]
+            if cell.halite == 0 and cell.shipyard == None and (cell.ship == None or cell.ship.player_id == state['me']):
+                action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
+            else:
+                action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
         elif task[1] == 'guard':
             action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
+            
     # Process actions
     actions = list(action.values())
     actions.sort(reverse=True, key=lambda x: x[0])
@@ -159,6 +179,7 @@ def convert_tasks():
     elif v > 500 and v > state['shipValue']:
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
+    
 
     state['closestShipyard'] = closest_shipyard(targetShipyards)
 
