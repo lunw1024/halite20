@@ -36,12 +36,12 @@ def ship_tasks():  # update action
 
     #target_based_attack()
 
-    '''
+    
     for ship in state['ships']:
         if ship.player_id != state['me']:
-            if state['trapped'][ship.player_id][ship.position.x][ship.position.y]:
+            if state['trapped'][ship.player_id][ship.position.x][ship.position.y] and ship.halite > 0:
                 print(ship.position)
-    '''
+    
 
     # All ships rule based
     for ship in me.ships:
@@ -64,7 +64,7 @@ def ship_tasks():  # update action
             continue # continue its current action
 
         # End-game return
-        if board.step > state['configuration']['episodeSteps'] - cfg.size * 2 and ship.halite > 0:
+        if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
         # End game attack
         if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0:
@@ -89,7 +89,7 @@ def ship_tasks():  # update action
     # Rule based: Attackers
     #print(len(state['myShips']))
     #print(len(state['attackers']))
-    #attack(state['attackers'])
+    attack(state['attackers'])
 
     # Reward based: Mining + Guarding + Control
     targets = [] # (cell, type)

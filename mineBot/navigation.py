@@ -243,9 +243,11 @@ def micro_run(s):
                     score[i] -= 0.5
             if state['enemyShipHalite'][pos.x][pos.y] < s.halite:
                 score[i] -= 0.5 + 1/directAttackers
+            if state['next'][pos.x][pos.y]:
+                score[i] -= 5
             score[i] += state['negativeControlMap'][pos.x][pos.y] * 0.01
         # Select best position
-        i, maximum = 0,0 
+        i, maximum = 0,score[0]
         for j, thing in enumerate(score):
             if thing > maximum:
                 i = j

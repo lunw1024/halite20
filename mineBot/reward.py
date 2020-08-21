@@ -25,8 +25,6 @@ def get_reward(ship,target):
     return res
 
 def control_reward(ship,cell):
-
-    return 0
     
     sPos = ship.position
     cPos = cell.position
@@ -66,7 +64,6 @@ def mine_reward(ship,cell):
     sPos = ship.position
     cPos = cell.position
     cHalite = cell.halite
-    cell
     shipyardDist = dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
 
     if state['generalDangerMap'][cPos.x][cPos.y] > 1.5 and state['trapped'][state['me']][cPos.x][cPos.y]:
@@ -75,6 +72,12 @@ def mine_reward(ship,cell):
     # Halite per turn
     halitePerTurn = 0
 
+    '''
+    if shipyardDist <= 3:
+        if cell.halite < min(100,(state['board'].step + 5*10)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
+            return 0
+    '''
+    
     # Occupied cell
     if cell.ship != None and cell.ship.player_id == state['me'] and cell.ship.halite <= ship.halite:
         # Current cell multiplier
@@ -155,7 +158,7 @@ def attack_reward(ship,cell):
     
     # It's a shipyard!
     elif len(state['myShips']) > 10 and ship.halite == 0:
-        if len(state['myShips']) > 15 and cell.shipyard.player == state['killTarget']:
+        if len(state['myShips']) > 15 and cell.shipyard.player == state['killTarget'] and dist(sPos,state['closestShipyard'][sPos.x][sPos.y]) <= 2:
             # Is it viable to attack
             viable = True
             for pos in get_adjacent(cPos):

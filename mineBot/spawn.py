@@ -1,12 +1,12 @@
 def spawn():
     # Ship value: 
-    
+    '''
     if state['shipValue'] >= 500: 
         return True
     else:
         return False
-    
     '''
+    
     # 抄袭
     bank = state['currentHalite']
     haliteMean = state['haliteMean']
@@ -30,7 +30,7 @@ def spawn():
         return True
     else:
         return False
-    '''
+    
 
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards

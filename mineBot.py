@@ -113,11 +113,11 @@ def halite_per_turn(deposit, shipTime, returnTime):
 
 def miner_num():
     
-    if state['board'].step < 300:
+    if state['board'].step < 280:
         if len(state['myShips']) > 25:
-            return min(len(state['myShips']),int(state['haliteMean'] / 8 + len(state['myShipyards'])))
-        else:
             return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
+        else:
+            return min(len(state['myShips']),int(state['haliteMean'] / 2 + len(state['myShipyards'])))
     elif state['board'].step > 370:
         return len(state['myShips'])
     else:
@@ -178,7 +178,11 @@ def rule_attack_reward(s,t,target_list):
                 if state['positiveControlMap'][xx][yy] > control and state['enemyShipHalite'][xx][yy] < 99999 and state['enemyShipHalite'][xx][yy] > 0:
                     yes = False
         if yes:
-            res = res * 8
+            res = res * 6
+    
+    if state['trapped'][t.player_id][tPos.x][tPos.y] and d <= 6:
+        res = res * 10
+
     '''
     for pos in get_adjacent(tPos):
         if state['enemyShipHalite'][pos.x][pos.y] <= s.halite:
@@ -241,12 +245,12 @@ def ship_tasks():  # update action
 
     #target_based_attack()
 
-    '''
+    
     for ship in state['ships']:
         if ship.player_id != state['me']:
-            if state['trapped'][ship.player_id][ship.position.x][ship.position.y]:
+            if state['trapped'][ship.player_id][ship.position.x][ship.position.y] and ship.halite > 0:
                 print(ship.position)
-    '''
+    
 
     # All ships rule based
     for ship in me.ships:
@@ -269,7 +273,7 @@ def ship_tasks():  # update action
             continue # continue its current action
 
         # End-game return
-        if board.step > state['configuration']['episodeSteps'] - cfg.size * 2 and ship.halite > 0:
+        if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite > 0:
             action[ship] = (ship.halite, ship, state['closestShipyard'][ship.position.x][ship.position.y])
         # End game attack
         if len(state['board'].opponents) > 0 and board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and ship.halite == 0:
@@ -294,7 +298,7 @@ def ship_tasks():  # update action
     # Rule based: Attackers
     #print(len(state['myShips']))
     #print(len(state['attackers']))
-    #attack(state['attackers'])
+    attack(state['attackers'])
 
     # Reward based: Mining + Guarding + Control
     targets = [] # (cell, type)
@@ -405,13 +409,13 @@ def control_farm():
 
 def spawn():
     # Ship value: 
-    
+    '''
     if state['shipValue'] >= 500: 
         return True
     else:
         return False
-    
     '''
+    
     # 抄袭
     bank = state['currentHalite']
     haliteMean = state['haliteMean']
@@ -435,7 +439,7 @@ def spawn():
         return True
     else:
         return False
-    '''
+    
 
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
@@ -902,9 +906,11 @@ def micro_run(s):
                     score[i] -= 0.5
             if state['enemyShipHalite'][pos.x][pos.y] < s.halite:
                 score[i] -= 0.5 + 1/directAttackers
+            if state['next'][pos.x][pos.y]:
+                score[i] -= 5
             score[i] += state['negativeControlMap'][pos.x][pos.y] * 0.01
         # Select best position
-        i, maximum = 0,0 
+        i, maximum = 0,score[0]
         for j, thing in enumerate(score):
             if thing > maximum:
                 i = j
@@ -945,8 +951,6 @@ def get_reward(ship,target):
     return res
 
 def control_reward(ship,cell):
-
-    return 0
     
     sPos = ship.position
     cPos = cell.position
@@ -986,7 +990,6 @@ def mine_reward(ship,cell):
     sPos = ship.position
     cPos = cell.position
     cHalite = cell.halite
-    cell
     shipyardDist = dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
 
     if state['generalDangerMap'][cPos.x][cPos.y] > 1.5 and state['trapped'][state['me']][cPos.x][cPos.y]:
@@ -995,6 +998,12 @@ def mine_reward(ship,cell):
     # Halite per turn
     halitePerTurn = 0
 
+    '''
+    if shipyardDist <= 3:
+        if cell.halite < min(100,(state['board'].step + 5*10)) and state['board'].step < state['configuration']['episodeSteps'] - 50:
+            return 0
+    '''
+    
     # Occupied cell
     if cell.ship != None and cell.ship.player_id == state['me'] and cell.ship.halite <= ship.halite:
         # Current cell multiplier
@@ -1075,7 +1084,7 @@ def attack_reward(ship,cell):
     
     # It's a shipyard!
     elif len(state['myShips']) > 10 and ship.halite == 0:
-        if len(state['myShips']) > 15 and cell.shipyard.player == state['killTarget']:
+        if len(state['myShips']) > 15 and cell.shipyard.player == state['killTarget'] and dist(sPos,state['closestShipyard'][sPos.x][sPos.y]) <= 2:
             # Is it viable to attack
             viable = True
             for pos in get_adjacent(cPos):
