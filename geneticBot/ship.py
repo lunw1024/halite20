@@ -1,16 +1,9 @@
 from dependency import *
 from navigation import *
 
-# Core strategy
+# XXX: bulky file, please do something
 
 action = {}  # ship -> (value,ship,target)
-farms = [] # list of cells to farm
-
-def farm_tasks():
-    control_farm()
-    if len(farms) < 4 * len(state['myShipyards']):
-        build_farm()
-    # Create patrols
 
 def ship_tasks():  # update action
     global action
@@ -118,65 +111,96 @@ def process_action(act):
         act[1].next_action = ShipAction.CONVERT
     return act[1].next_action
 
-def convert_tasks():
+def miner_num():
+    
+    if state['board'].step < 300:
+        if len(state['myShips']) > 25:
+            return min(len(state['myShips']),int(state['haliteMean'] / 8 + len(state['myShipyards'])))
+        else:
+            return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
+    else:
+        return len(state['myShips']) * 0.8
+'''
+def get_besiege():
+    global state
+    targets = []
+    for x in range(0,21,2):
+        for y in range(0,21,2):
+            halite = 0
+            for i in range(x,x+5):
+                for j in range(y,y+5):
+                    if 0 < state['enemyShipHalite'][i%21][j%21] <= 5000:
+                        halite+=state['enemyShipHalite'][i%21][j%21]+500
+            targets.append([x,y,halite])
+    targets = targets.sort(key = lambda x: x[2])
+    return targets[0]
+'''
+def get_targets():
+    targets = []
+    for ship in state['enemyShips']:
+        if ship.halite != 0:
+            targets.append(ship)
+    targets = targets.sort(reverse = True)
+    return targets[0]
+
+'''
+def greedy_selection(ship):
+# Force return
+    if ship.halite > 0:
+        action[ship] = (INF, ship, state['closestShipyard'][ship.position.x][ship.position.y])            continue
+        # Attack
+    finalTarget = targets[0]
+    v = rule_attack_reward(ship,finalTarget,target_list)
+    for target in targets:
+        tv = rule_attack_reward(ship,target,target_list)
+        if tv > v:
+            v = tv
+            finalTarget = target
+    #target_list.append(finalTarget)
+    action[ship] = (1/dist(finalTarget.position,ship.position), ship, finalTarget.position)
+'''
+
+def attack(ships):
     global action
+    # Select potential targets
+    target = get_targets()
+    for ship in ships:
+        if target.position.x-2<=ship.position.x<=target.position.x+2 and target.position.y-2<=ship.position.y<=target.position.y+2 and ship.halite<target.halite:
+            action[ship] = (INF, ship, target.position)
 
-    # Add convertion tasks
 
-    currentShipyards = state['myShipyards']  # Shipyards "existing"
-    targetShipyards = currentShipyards[:]
+# Greedy selection 
+# TODO: Improve this!
+def rule_attack_reward(s,t,target_list):
+    tPos = t.position 
+    sPos = s.position
+    d = dist(tPos,sPos)
+    res = 1/d
+    if t.player == state['killTarget']:
+        res = res * 4
 
-    # Maximum cell
-    v = shipyard_value(state['board'].cells[Point(0,0)])
-    t = state['board'].cells[Point(0,0)]
-    for cell in state['board'].cells.values():
-        a = shipyard_value(cell)
-        if v < a:
-            v = a
-            t = cell
-    tx, ty = t.position.x,t.position.y
-    # Calculate the reward for each cell
-    if state['board'].step == 0:
-        # Build immediately
-        targetShipyards.append(state['board'].cells[state['myShips'][0].position])
-        action[state['myShips'][0]] = (math.inf, state['myShips'][0], state['myShips'][0].position)
-        state['currentHalite'] -= 500
-    elif len(currentShipyards) == 0:
-        # Grab the closest possible ship to the target and build.
-        possibleShips = []
-        for ship in state['myShips']:
-            if ship.halite + state['currentHalite'] >= 500:
-                possibleShips.append(ship)
-        closest = closest_thing(Point(tx, ty),possibleShips)
-        if closest != None:
-            action[closest] = (math.inf, closest, Point(tx, ty))
-        targetShipyards.append(state['board'].cells[Point(tx, ty)])
-        state['currentHalite'] -= 500
-    elif v > 500 and v > state['shipValue']:
-        targetShipyards.append(state['board'].cells[Point(tx, ty)])
-        state['currentHalite'] -= 500
+    control = state['positiveControlMap'][tPos.x][tPos.y]
+    if control > 1 and d < 8:
+        # Check if local maxima
+        yes = True
+        for x in range(-3,4):
+            if not yes:
+                break
+            for y in range(-3,4):
+                xx = (tPos.x+x) % 21
+                yy = (tPos.y+y) % 21
+                if not yes:
+                    break
+                if state['positiveControlMap'][xx][yy] > control and state['enemyShipHalite'][xx][yy] < 99999 and state['enemyShipHalite'][xx][yy] > 0:
+                    yes = False
+        if yes:
+            res = res * 8
+    '''
+    for pos in get_adjacent(tPos):
+        if state['enemyShipHalite'][pos.x][pos.y] <= s.halite:
+            return 0
+    '''
 
-    state['closestShipyard'] = closest_shipyard(targetShipyards)
+    return res
 
-def build_farm():
-    global farms
-    maxCell = None
-    v = 0
 
-    for cell in state['board'].cells.values():
-        if cell.position in farms:
-            continue
-        a = farm_value(cell)
-        if a > v:
-            maxCell = cell
-            v = a
-
-    if maxCell != None:
-        farms.append(maxCell.position)
-
-def control_farm():
-    global farms
-    for i,farm in enumerate(farms[:]):
-        if state['board'].cells[farm].halite < state['haliteMean'] / 1.5 or dist(farm,state['closestShipyard'][farm.x][farm.y]) > 8:
-            # Not worth it
-            farms.remove(farm)

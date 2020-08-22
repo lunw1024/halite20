@@ -10,14 +10,13 @@ def agent(board):
         init(board)
 
     # Update
-    update(board)
+    encode(board)
 
     # Convert
     convert_tasks()
 
     # Farm
-    #farm_tasks()
-
+    # farm_tasks()
 
     # Ship
     ship_tasks()

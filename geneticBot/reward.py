@@ -1,7 +1,7 @@
-# Key function
-# For a ship, return the inherent "value" of the ship to get to a target cell
 
 def get_reward(ship,target):
+    # agnostic reward
+    # XXX: remove this, use sth_reward() directly
     
     cell = target[0]
     res = 0
@@ -167,64 +167,11 @@ def return_reward(ship,cell):
     res = res * returnWeights[1]
     return res 
 
-def shipyard_value(cell):
-    # Features
-    shipyardWeights = weights[0]
-    cPos = cell.position
 
-    if state['board'].step > 310:
-        return 0
 
-    nearestShipyard = closest_thing(cPos,state['shipyards'])
-    nearestShipyardDistance = 1
-    if nearestShipyard != None:
-        nearestShipyardDistance = dist(nearestShipyard.position,cPos)
-    negativeControl = min(0,state['controlMap'][cPos.x][cPos.y])
-    if len(state['myShips']) > 0:
-        negativeControl = max(negativeControl-0.5 ** dist(closest_thing(cPos,state['myShips']).position,cPos),state['negativeControlMap'][cPos.x][cPos.y])
-    haliteSpread = state['haliteSpread'][cPos.x][cPos.y] - state['haliteMap'][cPos.x][cPos.y]
-    shipShipyardRatio = len(state['myShips']) / max(1,len(state['myShipyards']))
 
-    # Hard limit on range and halite spread
-    if nearestShipyardDistance <= 5 or haliteSpread <= 200:
-        return 0
 
-    # Base halite multiplier
-    res = haliteSpread * shipyardWeights[0]
 
-    # Negative control
-    res += negativeControl * shipyardWeights[1]
-
-    # Nearest shipyard
-    res = res * nearestShipyardDistance ** shipyardWeights[2]
-
-    # Ship shipyard ratio multiplier
-    res = res * shipShipyardRatio ** shipyardWeights[3]
-
-    # Final multiplier and bias
-    res = res * shipyardWeights[4] + shipyardWeights[5]
-
-    return res
-
-def ship_value():
-    # 普及一胎，控制二胎，消灭三胎
-    if len(state['myShips']) >= 60:
-        return 0
-    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
-    res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
-    res += len(state['myShips'])  ** 1.5 * weights[4][2]
-    return res 
-
-def farm_value(cell):
-    cPos = cell.position
-    if len(state['myShipyards']) == 0 or cell.halite == 0:
-        return 0
-
-    closest = state['closestShipyard'][cPos.x][cPos.y]
-    if dist(closest,cPos) <= 1 or dist(closest,cPos) > 4:
-        return 0
-
-    return (cell.halite**0.5) / dist(closest,cPos) ** 2
 
 
         

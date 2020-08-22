@@ -1,12 +1,28 @@
-# General calculations whose values are expected to be used in multiple instances
-# Basically calc in botv1.0. 
-# Run in update() - see dependency.py
 from dependency import *
 from navigation import *
 
-def encode():
+def init(board):
+    # init board
+    state['configuration'] = board.configuration
+    state['me'] = board.current_player_id
+    state['playerNum'] = len(board.players)
+    state['memory'] = {}
+
+
+def encode(board):
     global state
     
+    # direct information
+    state['currentHalite'] = board.current_player.halite
+    state['next'] = np.zeros((board.configuration.size,board.configuration.size))
+    state['board'] = board
+    state['memory'][board.step] = {}
+    state['memory'][board.step]['board'] = board
+    state['cells'] = board.cells.values()
+    state['ships'] = board.ships.values()
+    state['myShips'] = board.current_player.ships
+    state['shipyards'] = board.shipyards.values()
+    state['myShipyards'] = board.current_player.shipyards
     N = state['configuration'].size
 
     # Halite 
@@ -144,3 +160,12 @@ def get_target():
             v = value
             idx = i
     return board.opponents[idx]
+
+def ship_value():
+    # 普及一胎，控制二胎，消灭三胎
+    if len(state['myShips']) >= 60:
+        return 0
+    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
+    res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
+    res += len(state['myShips'])  ** 1.5 * weights[4][2]
+    return res 
