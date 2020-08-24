@@ -7,7 +7,7 @@ import math, random
 import numpy as np
 import scipy.optimize
 import scipy.ndimage
-from queue import PriorityQueue
+from queue import Queue, PriorityQueue
 
 # Global constants
 

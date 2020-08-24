@@ -132,19 +132,32 @@ def closest_shipyard(shipyards):
     return res
     
 def control_map(ships,shipyards):
-        ITERATIONS = 3
+    ITERATIONS = 3
 
-        res = np.copy(ships)
-        for i in range(1,ITERATIONS+1):
-            res += np.roll(ships,i,axis=0) * 0.5**i
-            res += np.roll(ships,-i,axis=0) * 0.5**i
-        temp = res.copy()
-        for i in range(1,ITERATIONS+1):
-            res += np.roll(temp,i,axis=1) * 0.5**i
-            res += np.roll(temp,-i,axis=1) * 0.5**i
+    res = np.copy(ships)
+    for i in range(1,ITERATIONS+1):
+        res += np.roll(ships,i,axis=0) * 0.5**i
+        res += np.roll(ships,-i,axis=0) * 0.5**i
+    temp = res.copy()
+    for i in range(1,ITERATIONS+1):
+        res += np.roll(temp,i,axis=1) * 0.5**i
+        res += np.roll(temp,-i,axis=1) * 0.5**i
+    
+    return res + shipyards
         
-        return res + shipyards
-        
+def flood_fill(hmap, sources, threshold):
+    # returns a boolean map indicating filled areas
+    dirs = zip([0, 1, 0, -1], [1, 0, -1, 0])
+    vis = np.zero_like(hmap, dtype=bool)
+    def dfs(x, y):
+        if vis[x, y]: return
+        vis[x, y] = True
+        for dx, dy in dirs:
+            nx, ny = (x + dx) % N, (y + dy) % N
+            if not vis[nx, ny] and hmap[nx, ny] <= threshold:
+                dfs(nx, ny)
+    for source in sources: dfs(source.x, source.y)
+    return vis
 
 def get_target():
     board = state['board']
