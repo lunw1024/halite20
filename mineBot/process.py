@@ -4,10 +4,21 @@
 from dependency import *
 from navigation import *
 
-def encode():
+def encode(board):
     global state
     
     N = state['configuration'].size
+
+    state['currentHalite'] = board.current_player.halite
+    state['next'] = np.zeros((board.configuration.size,board.configuration.size))
+    state['board'] = board
+    state['memory'][board.step] = {}
+    state['memory'][board.step]['board'] = board
+    state['cells'] = board.cells.values()
+    state['ships'] = board.ships.values()
+    state['myShips'] = board.current_player.ships
+    state['shipyards'] = board.shipyards.values()
+    state['myShipyards'] = board.current_player.shipyards
 
     # Halite 
     state['haliteMap'] = np.zeros((N, N))
@@ -123,18 +134,18 @@ def closest_shipyard(shipyards):
     return res
     
 def control_map(ships,shipyards):
-        ITERATIONS = 3
+    ITERATIONS = 3
 
-        res = np.copy(ships)
-        for i in range(1,ITERATIONS+1):
-            res += np.roll(ships,i,axis=0) * 0.5**i
-            res += np.roll(ships,-i,axis=0) * 0.5**i
-        temp = res.copy()
-        for i in range(1,ITERATIONS+1):
-            res += np.roll(temp,i,axis=1) * 0.5**i
-            res += np.roll(temp,-i,axis=1) * 0.5**i
-        
-        return res + shipyards
+    res = np.copy(ships)
+    for i in range(1,ITERATIONS+1):
+        res += np.roll(ships,i,axis=0) * 0.5**i
+        res += np.roll(ships,-i,axis=0) * 0.5**i
+    temp = res.copy()
+    for i in range(1,ITERATIONS+1):
+        res += np.roll(temp,i,axis=1) * 0.5**i
+        res += np.roll(temp,-i,axis=1) * 0.5**i
+    
+    return res + shipyards
         
 def get_target():
     board = state['board']

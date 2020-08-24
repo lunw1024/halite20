@@ -38,3 +38,14 @@ def halite_per_turn(deposit, shipTime, returnTime):
         maximum = perTurn if perTurn > maximum else maximum
     return maximum
 
+def miner_num():
+    if state['board'].step < 280:
+        if len(state['myShips']) > 25:
+            return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
+        else:
+            return min(len(state['myShips']),int(state['haliteMean'] / 2 + len(state['myShipyards'])))
+    elif state['board'].step > 370:
+        return len(state['myShips'])
+    else:
+        return len(state['myShips']) * 0.8
+

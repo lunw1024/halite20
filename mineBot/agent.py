@@ -1,6 +1,5 @@
 # The final function
 
-
 @board_agent
 def agent(board):
 
@@ -20,6 +19,8 @@ def agent(board):
 
     # Ship
     ship_tasks()
+
+    # process actions
 
     # Spawn
     spawn_tasks()
