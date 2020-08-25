@@ -41,6 +41,9 @@ def init(board):
     state['playerNum'] = len(board.players)
     state['memory'] = {}
 
+    # See swarm.py
+    state['swarm'] = None
+
     pass
 
 # Run start of every turn

@@ -2,7 +2,7 @@
 def direction_to(s: Point, t: Point) -> ShipAction:
     candidate = directions_to(s, t)
     if len(candidate) == 2:
-        if dist(Point(s.x,0),point(t.x,0)) > dist(Point(0,s.y),Point(0,t.y)):
+        if dist(Point(s.x,0),Point(t.x,0)) > dist(Point(0,s.y),Point(0,t.y)):
             return candidate[1]
         else:
             return candidate[0]
@@ -131,7 +131,7 @@ def d_move(s : Ship, t : Point, inBlocked):
     desired = None
 
     #Stay still
-    if sPos == t or nextMap[t.x][t.y]:
+    if sPos == t:
 
         #Someone with higher priority needs position, must move. Or being attacked.
         if blocked[t.x][t.y]:
@@ -255,6 +255,44 @@ def micro_run(s):
         return direction_to(sPos,get_adjacent(sPos)[i])
     else:
         return None
+
+def danger(s, pos):
+    t = state['board'].cells[pos].ship
+    if t != None and t.player != s.player and t.halite < s.halite:
+        return True
+    for p in get_adjacent(pos):
+        t = state['board'].cells[p].ship
+        if t != None and t.player != s.player and t.halite < s.halite:
+            return True
+    return False
+
+def predict(s : Ship):
+    player = s.player
+    sPos = s.position
+    
+    if not danger(s,sPos):
+        return sPos
+
+    options = []
+    for pos in get_adjacent(sPos):
+        if not danger(s,pos):
+            options.append(pos)
+
+    if len(options) == 0 or len(options) == 2:
+        # 2 assume none because it might go left or right. We dont want to go in wrong direction.
+        return sPos
+    
+    if len(options) == 1:
+        return options[0]
+
+    if len(options) == 3:
+        for pos in get_adjacent(sPos):
+            t = state['board'].cells[pos].ship
+        if t != None and t.player != s.player and t.halite < s.halite:
+            return dry_move(sPos,opp_direction(direction_to(sPos,pos)))
+
+
+    
 
 
 

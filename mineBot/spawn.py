@@ -25,13 +25,11 @@ def spawn():
     res = W2 @ res + b2
     res = np.maximum(res, 0)
     res = W3 @ res + b3
-    #print(res)
     if res > 0:
         return True
     else:
         return False
     
-
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
     shipyards.sort(reverse=True, key=lambda shipyard: state['haliteSpread'][shipyard.position.x][shipyard.position.y])
@@ -52,8 +50,6 @@ def spawn_tasks():
                         shipyard.next_action = ShipyardAction.SPAWN
                         state['currentHalite'] -= 500
                         return
-
-
 
 spawnMean = np.array([4.9859e+03, 6.0502e+01, 2.5001e+01, 1.9415e+02, 2.8910e+01, 6.1503e-01])
 spawnStd = np.array([8.5868e+03, 1.5326e+01, 1.0737e+01, 1.1549e+02, 1.1789e+01, 4.8660e-01])

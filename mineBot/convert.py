@@ -36,6 +36,7 @@ def convert_tasks():
         targetShipyards.append(state['board'].cells[Point(tx, ty)])
         state['currentHalite'] -= 500
     
+    state['targetShipyards'] = targetShipyards
     state['closestShipyard'] = closest_shipyard(targetShipyards)
 
 def shipyard_value(cell):

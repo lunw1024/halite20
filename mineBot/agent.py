@@ -24,3 +24,9 @@ def agent(board):
 
     # Spawn
     spawn_tasks()
+    
+    '''
+    select_swarm_target()
+    if state['swarm'] != None:
+        print(state['swarm'].position)
+    '''

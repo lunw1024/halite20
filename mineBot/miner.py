@@ -160,6 +160,7 @@ def mine_reward(ship,cell):
         # Yes
         halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),dist(cPos,state['closestShipyard'][cPos.x][cPos.y]))
     '''
+    
     halitePerTurn = halite_per_turn(cHalite,dist(sPos,cPos),shipyardDist) 
     # Surrounding halite
     spreadGain = state['haliteSpread'][cPos.x][cPos.y] * mineWeights[0]

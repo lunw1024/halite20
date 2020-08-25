@@ -16,22 +16,19 @@ def ship_tasks():  # update action
     temp = get_attack_targets()
 
     state['attackers'] = []
+    state['swarmers'] = []
     state['miners'] = []
-    if len(temp) > 0:
-        minerNum = miner_num()
-        attackerNum = len(state['myShips']) - minerNum
-        for ship in me.ships:
-            if ship in action:
-                continue
-            if attackerNum > 0:
-                attackerNum -= 1
-                #Uncomment to activate attack
-                #state['attackers'].append(ship)
-                #continue
 
+    minerNum = miner_num()
+    
+    
+    for ship in state['myShips']:
+        if minerNum > 0:
+            minerNum -= 1
             state['miners'].append(ship)
-
-    #target_based_attack()
+        else:
+            state['swarmers'].append(ship)
+            #state['miners'].append(ship)
 
     # All ships rule based
     for ship in me.ships:
@@ -65,10 +62,8 @@ def ship_tasks():  # update action
                 target = closest_thing(ship.position,killTarget.ships)
                 action[ship] = (ship.halite, ship, target.position)
 
-    # Rule based: Attackers
-    #print(len(state['myShips']))
-    #print(len(state['attackers']))
-    attack(state['attackers'])
+    #attack(state['attackers'])
+    swarm(state['swarmers'])
     mine(state['miners'])
 
     # Reward based: Mining + Guarding + Control
@@ -78,6 +73,19 @@ def ship_tasks():  # update action
     actions.sort(reverse=True, key=lambda x: x[0])
     for act in actions:
         process_action(act)
+
+def miner_num():
+    if len(state['myShips']) < 18:
+        return len(state['myShips'])
+    if state['board'].step < 280:
+        if len(state['myShips']) > 25:
+            return min(len(state['myShips']),int(state['haliteMean'] / 4 + len(state['myShipyards'])))
+        else:
+            return min(len(state['myShips']),int(state['haliteMean'] / 2 + len(state['myShipyards'])))
+    elif state['board'].step > 370:
+        return len(state['myShips'])
+    else:
+        return len(state['myShips']) * 0.8
 
 def process_action(act):
     global action
