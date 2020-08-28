@@ -82,11 +82,12 @@ def select_swarm_target():
                 cell = board.cells[Point(xx,yy)]
                 v += cell.halite
                 
+                '''
                 if cell.ship != None and cell.ship.player == shipyard.player and cell.ship.halite > 0:
                     v += 20
                 elif cell.ship != None and cell.ship.player == shipyard.player and cell.ship.halite == 0:
                     v -= 10
-
+                '''
                 
         if not state['swarm'] is None and shipyard.position == state['swarm']:
             v *= 2
@@ -1039,14 +1040,13 @@ def safe_naive(s,t,blocked):
 def move_cost(s : Ship, t : Point, p : Point):
     navigationWeights = weights[6]
     cost = state[s]['danger'][p.x][p.y] * navigationWeights[1]
-    c = state['board'].cells[p]
+    c = state['board'].cells[t]
     if c.ship != None and c.ship.player_id != state['me']:
-        if direction_to(t,s.position) != direction_to(t,p):
-            cost += 1
-    
+        d = direction_to(s.position,t)
+        if d == direction_to(s.position,p):
+            cost -= 0.1
     if s.halite > 0 and state['trapped'][state['me']][s.position.x][s.position.y]:
         cost += 5
-    
     return cost
 
 # Dijkstra's movement
@@ -1371,6 +1371,7 @@ def agent(board):
     # Spawn
     spawn_tasks()
     
+    print(len(state['myShips']))
     '''
     select_swarm_target()
     if state['swarm'] != None:

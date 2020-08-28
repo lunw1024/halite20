@@ -17,11 +17,12 @@ def select_swarm_target():
                 cell = board.cells[Point(xx,yy)]
                 v += cell.halite
                 
+                '''
                 if cell.ship != None and cell.ship.player == shipyard.player and cell.ship.halite > 0:
                     v += 20
                 elif cell.ship != None and cell.ship.player == shipyard.player and cell.ship.halite == 0:
                     v -= 10
-
+                '''
                 
         if not state['swarm'] is None and shipyard.position == state['swarm']:
             v *= 2
