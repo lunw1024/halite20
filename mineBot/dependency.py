@@ -24,7 +24,7 @@ state = {}
         # 4 - spawn weights
         # 5 - guard weights
         # 6 - navigation weights
-        # 7 - target attack weights
+        # 7 - control weights
     
 temp = []
 weights = weights.split('\n')

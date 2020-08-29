@@ -1,3 +1,8 @@
+#=====================#
+#测试模块 供参考
+#尝试针对敌方某一个船床，包围
+#=====================#
+
 INFLUENCE_RANGE = 4
 def select_swarm_target():
     board = state['board']

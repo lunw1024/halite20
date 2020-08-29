@@ -13,22 +13,23 @@ def ship_tasks():  # update action
     me = board.current_player
 
     # Split attack ships and mine ships
+
+    #=====================#
+    # Currently only miners. Structure below is for reference
     temp = get_attack_targets()
 
     state['attackers'] = []
     state['swarmers'] = []
     state['miners'] = []
-
     minerNum = miner_num()
-    
-    
     for ship in state['myShips']:
         if minerNum > 0:
             minerNum -= 1
             state['miners'].append(ship)
         else:
-            state['swarmers'].append(ship)
-            #state['miners'].append(ship)
+            #state['swarmers'].append(ship)
+            state['miners'].append(ship)
+    #=====================#
 
     # All ships rule based
     for ship in me.ships:
