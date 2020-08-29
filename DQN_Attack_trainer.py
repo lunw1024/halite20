@@ -11,7 +11,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import copy
-
 np.set_printoptions(precision=3)
 np.set_printoptions(suppress=True)
 torch.set_printoptions(profile="short")
@@ -33,8 +32,6 @@ PRINT_INTERVAL = 1
 running_avg_reward = []
 episode_rewards = []
 STATE=defaultdict(lambda:'dummy')
-
-
 #https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html#replay-memory
 class ReplayMemory(object):
 
@@ -99,24 +96,30 @@ def world_feature(board):
     np.set_printoptions(precision=3)
     STATE['configuration'] = board.configuration
     STATE['me'] = board.current_player_id
-    STATE['playerNum'] = 4 #int(len(board.players))
+    STATE['playerNum'] = int(len(board.players))
     STATE['memory'] = {}
     STATE['currentHalite'] = board.current_player.halite
-    STATE['next'] = np.zeros((board.configuration.size,board.configuration.size))
+    STATE['next'] = np.zeros((1,board.configuration.size,board.configuration.size))
+    #STATE['next']=STATE['next'].reshape(1,STATE['next'].shape[0],STATE['next'].shape[1])
     STATE['board'] = board
     STATE['memory'][board.step] = {}
     STATE['memory'][board.step]['board'] = board
     STATE['cells'] = board.cells.values()
+    #print(STATE['cells'])
     STATE['ships'] = board.ships.values()
     STATE['myShips'] = board.current_player.ships
     STATE['shipyards'] = board.shipyards.values()
     STATE['myShipyards'] = board.current_player.shipyards
     N = board.configuration.size
+    #print(STATE)
 
-#     # Halite 
-#     state['haliteMap'] = np.zeros((N, N))
-#     for cell in state['cells']:
-#         state['haliteMap'][cell.position.x][cell.position.y] = cell.halite
+    # Halite 
+    STATE['haliteMap'] = np.zeros((N, N))
+    #print(STATE['haliteMap'].shape)
+    for cell in STATE['cells']:
+        STATE['haliteMap'][cell.position.x][cell.position.y] = cell.halite
+    STATE['haliteMap']=STATE['haliteMap'].reshape(1,N,N)
+    #print(STATE['haliteMap'])
 #     # Halite Spread
 #     state['haliteSpread'] = np.copy(state['haliteMap'])
 #     for i in range(1,5):
@@ -162,12 +165,14 @@ def world_feature(board):
 #     state['controlMap'] = control_map(state['ally']-state['enemy'],state['allyShipyard']-state['enemyShipyard'])
 #     state['negativeControlMap'] = control_map(-state['enemy'],-state['enemyShipyard'])
 #     state['positiveControlMap'] = control_map(state['ally'],state['allyShipyard'])
-#     #Enemy ship labeled by halite. If none, infinity
-#     state['enemyShipHalite'] = np.zeros((N, N))
-#     state['enemyShipHalite'] += np.Infinity
-#     for ship in state['ships']:
-#         if ship.player.id != state['me']:
-#             state['enemyShipHalite'][ship.position.x][ship.position.y] = ship.halite
+    #Enemy ship labeled by halite. If none, infinity
+    STATE['enemyShipHalite'] = np.zeros((N, N))
+    STATE['enemyShipHalite'] += np.Infinity
+    for ship in STATE['ships']:
+        if ship.player.id != STATE['me']:
+            STATE['enemyShipHalite'][ship.position.x][ship.position.y] = ship.halite
+    STATE['enemyShipHalite']=STATE['enemyShipHalite'].reshape(1,N,N)
+    
 #     # Avoidance map (Places not to go for each ship)
 #     for ship in state['myShips']:
 #         state[ship] = {}
@@ -186,12 +191,16 @@ def world_feature(board):
         shipyard,
         halite_spread,
         halite_total,
-        halite_mean
+        halite_mean,
+        STATE['haliteMap'],
+        STATE['enemyShipHalite']
     ], axis=0)
 #As example take the first frame of the game
 sample_obs = env.state[0].observation
 board = Board(sample_obs, env.configuration)
 feature = world_feature(board)
+print(feature.shape)
+
 #https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html#q-network
 class SmallModel(nn.Module):
     def __init__(self, input_channels, num_actions):
@@ -242,12 +251,12 @@ class SmallModel(nn.Module):
         return x.reshape(features.shape[0], self.num_actions, BOARD_SIZE, BOARD_SIZE)
               
 model = SmallModel(
-    input_channels=7, #needs to be equal to the number of feature channels we have
+    input_channels=feature.shape[0], #needs to be equal to the number of feature channels we have
     num_actions=len(ACTIONS)
 )
 
 target_model = SmallModel(
-    input_channels=7, #needs to be equal to the number of feature channels we have
+    input_channels=feature.shape[0], #needs to be equal to the number of feature channels we have
     num_actions=len(ACTIONS)
 )
 #predicting the feature from the cell above
@@ -324,11 +333,11 @@ for episode in range(TRAINING_ITERATIONS+1): #+1 so its inclusive and we print a
             if agent_status == 'ACTIVE':
                 player_obs = env.state[0].observation.players[active_id]
                 observation['player'] = active_id
-                print('before action ships')
-                print(len(board.current_player.ships))
+                #print('before action ships')
+                #print(len(board.current_player.ships))
                 engine_commands, state, actions = make_move(model, observation, env.configuration, EPSILON)
-                print('after action ships')
-                print(len(board.current_player.ships))
+                #print('after action ships')
+                #print(len(board.current_player.ships))
                 player2states[active_id].append(state)
                 player2actions[active_id].append(actions)
 
@@ -445,5 +454,4 @@ for episode in range(TRAINING_ITERATIONS+1): #+1 so its inclusive and we print a
         target_model = copy.deepcopy(model)
         
     EPSILON *= EPSILON_DECAY 
-
 torch.save(model, './model.h5')
