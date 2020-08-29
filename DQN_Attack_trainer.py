@@ -194,7 +194,7 @@ def world_feature(board):
         halite_spread,
         halite_total,
         halite_mean,
-        STATE['haliteMap'],
+        #STATE['haliteMap'],
         STATE['enemyShipHalite'],
         STATE['haliteSpread']
     ], axis=0)
