@@ -1,5 +1,4 @@
 # General calculations whose values are expected to be used in multiple instances
-# Basically calc in botv1.0. 
 # Run in update() - see dependency.py
 from dependency import *
 from navigation import *
@@ -92,6 +91,8 @@ def encode(board):
     if len(state['board'].opponents) > 0:
         state['killTarget'] = get_target()
     
+
+# Direct danger areas for ally ship with halite s
 def get_avoidance(s):
     threshold = s.halite
     #Enemy units
@@ -108,6 +109,8 @@ def get_avoidance(s):
     blocked = np.where(blocked>0,1,0)
     return blocked
 
+# Convolution for ship with halite s
+# Similar to control map but with less aggressive drop (0.7 instead of 0.5)
 def get_danger(s):
     threshold = s
     dangerMap = np.where(state['enemyShipHalite'] < threshold, 1, 0)
@@ -121,6 +124,7 @@ def get_danger(s):
         dangerMap += np.roll(temp,-i,axis=1) * 0.7**i
     return dangerMap
     
+# Returns a map where each cell stores closest shipyard position given list of cells/ships/shipyards
 def closest_shipyard(shipyards):
     N = state['configuration'].size
     res = [[None for y in range(N)]for x in range(N)]
@@ -133,6 +137,7 @@ def closest_shipyard(shipyards):
                     res[x][y] = shipyard.position
     return res
     
+# Convolution given ships and shipyards    
 def control_map(ships,shipyards):
     ITERATIONS = 3
 
@@ -146,7 +151,9 @@ def control_map(ships,shipyards):
         res += np.roll(temp,-i,axis=1) * 0.5**i
     
     return res + shipyards
-        
+
+# Returns the current opponent we wish to prioritize attack (old code. Much to be improved. Slightly obselete?)
+# state['killTarget']        
 def get_target():
     board = state['board']
     me = board.current_player
@@ -162,6 +169,8 @@ def get_target():
             idx = i
     return board.opponents[idx]
 
+# Creates a map for team
+# Where true if position is very dangerous (trapped on 4 sides) by all opponents
 def get_immediate_danger(team):
     res = np.zeros((state['configuration'].size,state['configuration'].size))
     enemy = np.zeros((state['configuration'].size,state['configuration'].size))

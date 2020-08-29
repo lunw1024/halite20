@@ -1,3 +1,11 @@
+#=====================#
+# Oldest all-rounder rule based ship.
+# control_reward - reward for staying on an empty spot
+# guard_reward - reward for staying on a friendly shipyard empty
+# mine_reward - reward for mining a cell
+# attack_reward - reward for going to cell with opponent
+# return reward - reward for going to friendly shipyard, not empty
+#=====================#
 def mine(ships):
     global action
     cfg = state['configuration']
@@ -70,7 +78,8 @@ def get_reward(ship,target):
     return res
 
 def control_reward(ship,cell):
-    
+
+    controlWeights = weights[7]
     sPos = ship.position
     cPos = cell.position
 
@@ -80,7 +89,7 @@ def control_reward(ship,cell):
     for pos in get_adjacent(cPos):
         tCell = state['board'].cells[pos]
         if tCell.halite > 0:
-            res += 3.5
+            res += controlWeights[0]
     res -= dist(sPos,cPos) + dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
     return res
 
@@ -111,7 +120,7 @@ def mine_reward(ship,cell):
     cHalite = cell.halite
     shipyardDist = dist(cPos,state['closestShipyard'][cPos.x][cPos.y])
 
-    if state['generalDangerMap'][cPos.x][cPos.y] > 1.5 and state['trapped'][state['me']][cPos.x][cPos.y]:
+    if state['generalDangerMap'][cPos.x][cPos.y] > mineWeights[5] and state['trapped'][state['me']][cPos.x][cPos.y]:
         return 0
 
     # Halite per turn
