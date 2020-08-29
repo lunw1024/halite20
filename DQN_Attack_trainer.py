@@ -120,15 +120,17 @@ def world_feature(board):
         STATE['haliteMap'][cell.position.x][cell.position.y] = cell.halite
     STATE['haliteMap']=STATE['haliteMap'].reshape(1,N,N)
     #print(STATE['haliteMap'])
-#     # Halite Spread
-#     state['haliteSpread'] = np.copy(state['haliteMap'])
-#     for i in range(1,5):
-#         state['haliteSpread'] += np.roll(state['haliteMap'],i,axis=0) * 0.5**i
-#         state['haliteSpread'] += np.roll(state['haliteMap'],-i,axis=0) * 0.5**i
-#     temp = state['haliteSpread'].copy()
-#     for i in range(1,5):
-#         state['haliteSpread'] += np.roll(temp,i,axis=1) * 0.5**i
-#         state['haliteSpread'] += np.roll(temp,-i,axis=1) *  0.5**i
+    # Halite Spread
+    STATE['haliteSpread'] = np.copy(STATE['haliteMap'])
+    for i in range(1,5):
+        STATE['haliteSpread'] += np.roll(STATE['haliteMap'],i,axis=0) * 0.5**i
+        STATE['haliteSpread'] += np.roll(STATE['haliteMap'],-i,axis=0) * 0.5**i
+    temp = STATE['haliteSpread'].copy()
+    for i in range(1,5):
+        STATE['haliteSpread'] += np.roll(temp,i,axis=1) * 0.5**i
+        STATE['haliteSpread'] += np.roll(temp,-i,axis=1) *  0.5**i
+    STATE['haliteSpread']=STATE['haliteSpread'].reshape(1,N,N)
+    
 #     # Ships
 #     state['shipMap'] = np.zeros((state['playerNum'], N, N))
 #     state['enemyShips'] = []
@@ -193,14 +195,15 @@ def world_feature(board):
         halite_total,
         halite_mean,
         STATE['haliteMap'],
-        STATE['enemyShipHalite']
+        STATE['enemyShipHalite'],
+        STATE['haliteSpread']
     ], axis=0)
 #As example take the first frame of the game
 sample_obs = env.state[0].observation
 board = Board(sample_obs, env.configuration)
 feature = world_feature(board)
 print(feature.shape)
-
+(10, 21, 21)
 #https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html#q-network
 class SmallModel(nn.Module):
     def __init__(self, input_channels, num_actions):
@@ -267,7 +270,7 @@ def make_move(model, obs, configuration, EPSILON):
     board = Board(obs, configuration)
     me = board.current_player
     #if we do not have ships but a shipyard build 1 ship
-    print(len(me.ships))
+    #print(len(me.ships))
     if len(me.ships)==0 and len(me.shipyards)>0:
         me.shipyards[0].next_action = ShipyardAction.SPAWN
     #Random Spawn, needs improvement
