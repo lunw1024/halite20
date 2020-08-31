@@ -1,8 +1,3 @@
-#=====================#
-# Potential method of labelling farms on the map
-# Seperate bots will take into account of labels
-#=====================#
-
 def farm_tasks():
     build_farm()
     control_farm()

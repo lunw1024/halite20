@@ -79,7 +79,7 @@ def safe_naive(s,t,blocked):
 
 def move_cost(s : Ship, t : Point, p : Point):
     navigationWeights = weights[6]
-    cost = state[s]['danger'][p.x][p.y] * navigationWeights[0]
+    cost = state[s]['danger'][p.x][p.y] * navigationWeights[1]
     c = state['board'].cells[t]
     if c.ship != None and c.ship.player_id != state['me']:
         d = direction_to(s.position,t)
@@ -255,7 +255,6 @@ def micro_run(s):
     else:
         return None
 
-# Will ship s be in danger at position pos
 def danger(s, pos):
     t = state['board'].cells[pos].ship
     if t != None and t.player != s.player and t.halite < s.halite:
@@ -266,8 +265,6 @@ def danger(s, pos):
             return True
     return False
 
-# Tries to predict the movement of an opponent ship in danger. 
-# Not tested
 def predict(s : Ship):
     player = s.player
     sPos = s.position

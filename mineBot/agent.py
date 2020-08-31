@@ -14,6 +14,9 @@ def agent(board):
     # Convert
     convert_tasks()
 
+    # Farm
+    #farm_tasks()
+
     # Ship
     ship_tasks()
 
@@ -21,3 +24,9 @@ def agent(board):
 
     # Spawn
     spawn_tasks()
+    
+    '''
+    select_swarm_target()
+    if state['swarm'] != None:
+        print(state['swarm'].position)
+    '''

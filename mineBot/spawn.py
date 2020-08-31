@@ -1,6 +1,6 @@
 def spawn():
     # Ship value: 
-
+    '''
     if state['shipValue'] >= 500: 
         return True
     else:
@@ -29,15 +29,6 @@ def spawn():
         return True
     else:
         return False
-    '''
-
-def ship_value():
-    if len(state['myShips']) >= 60:
-        return 0
-    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
-    res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
-    res += len(state['myShips'])  ** 1.5 * weights[4][2]
-    return res 
     
 def spawn_tasks():
     shipyards = state['board'].current_player.shipyards
@@ -82,4 +73,10 @@ b2 = np.array([-0.40560475 ,-0.00167005 , 0.7714385 , -0.19049597])
 W3 = np.array([[ 0.4247551 ,  5.073255   ,-4.3405128  , 0.00574893]])
 b3 = np.array([-0.2889765])
 
-
+def ship_value():
+    if len(state['myShips']) >= 60:
+        return 0
+    res = state['haliteMean'] * 0.25 * (state['configuration']['episodeSteps']- 30 - state['board'].step) * weights[4][0]
+    res += (len(state['ships']) - len(state['myShips'])) ** 1.5 * weights[4][1]
+    res += len(state['myShips'])  ** 1.5 * weights[4][2]
+    return res 
