@@ -21,19 +21,17 @@ BOARD_SIZE = 21
 TURNS = 400
 EPSILON = 1.0 
 EPSILON_DECAY = 0.998
-TRAINING_ITERATIONS = 4
-EPOCHS = 2
+TRAINING_ITERATIONS = 2300
+EPOCHS = 1
 REPLACE_TARGET_INTERVAL = 10
 LEARNING_RATE = 0.1
 REPLAY_CAPACITY = 200000
 WARM_START_SAMPLES = 32*20
 BATCH_SIZE = 32
 GAMMA = 0.99
-PRINT_INTERVAL = 1
+PRINT_INTERVAL = 100
 running_avg_reward = []
 episode_rewards = []
-STATE=defaultdict(lambda:'dummy')
-
 
 #https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html#replay-memory
 class ReplayMemory(object):
@@ -56,8 +54,11 @@ class ReplayMemory(object):
 
     def __len__(self):
         return len(self.memory)
+
+
 env = make('halite', configuration={"randomSeed": 5, "episodeSteps": TURNS, "size": BOARD_SIZE}, debug=True)
 _ = env.reset(num_agents=NUM_AGENTS)
+
 ACTIONS = [
     ShipAction.NORTH,
     ShipAction.EAST,
@@ -66,6 +67,7 @@ ACTIONS = [
     ShipAction.CONVERT,
     #None #Disable None for training attack
 ]
+
 def world_feature(board):
     size = board.configuration.size
     me = board.current_player
@@ -95,23 +97,23 @@ def world_feature(board):
     halite_total = np.ones((1,size,size))*np.sum(ship_cargo)
     #Mean Halite
     halite_mean  = np.ones((1,size,size))*np.sum(ship_cargo)/(size**2)
-    global STATE
-    np.set_printoptions(precision=3)
-    STATE['configuration'] = board.configuration
-    STATE['me'] = board.current_player_id
-    STATE['playerNum'] = 4 #int(len(board.players))
-    STATE['memory'] = {}
-    STATE['currentHalite'] = board.current_player.halite
-    STATE['next'] = np.zeros((board.configuration.size,board.configuration.size))
-    STATE['board'] = board
-    STATE['memory'][board.step] = {}
-    STATE['memory'][board.step]['board'] = board
-    STATE['cells'] = board.cells.values()
-    STATE['ships'] = board.ships.values()
-    STATE['myShips'] = board.current_player.ships
-    STATE['shipyards'] = board.shipyards.values()
-    STATE['myShipyards'] = board.current_player.shipyards
-    N = board.configuration.size
+#     global state
+#     np.set_printoptions(precision=3)
+#     state['configuration'] = board.configuration
+#     state['me'] = board.current_player_id
+#     state['playerNum'] = len(board.players)
+#     state['memory'] = {}
+#     state['currentHalite'] = board.current_player.halite
+#     state['next'] = np.zeros((board.configuration.size,board.configuration.size))
+#     state['board'] = board
+#     state['memory'][board.step] = {}
+#     state['memory'][board.step]['board'] = board
+#     state['cells'] = board.cells.values()
+#     state['ships'] = board.ships.values()
+#     state['myShips'] = board.current_player.ships
+#     state['shipyards'] = board.shipyards.values()
+#     state['myShipyards'] = board.current_player.shipyards
+#     N = state['configuration'].size
 
 #     # Halite 
 #     state['haliteMap'] = np.zeros((N, N))
@@ -188,9 +190,12 @@ def world_feature(board):
         halite_total,
         halite_mean
     ], axis=0)
+
+
 #As example take the first frame of the game
 sample_obs = env.state[0].observation
 board = Board(sample_obs, env.configuration)
+
 feature = world_feature(board)
 #https://pytorch.org/tutorials/intermediate/reinforcement_q_learning.html#q-network
 class SmallModel(nn.Module):
@@ -240,7 +245,8 @@ class SmallModel(nn.Module):
         x = self.output(x) #pass through linear layer
         
         return x.reshape(features.shape[0], self.num_actions, BOARD_SIZE, BOARD_SIZE)
-              
+                          
+
 model = SmallModel(
     input_channels=7, #needs to be equal to the number of feature channels we have
     num_actions=len(ACTIONS)
@@ -250,6 +256,7 @@ target_model = SmallModel(
     input_channels=7, #needs to be equal to the number of feature channels we have
     num_actions=len(ACTIONS)
 )
+
 #predicting the feature from the cell above
 feature_tensor = torch.from_numpy(feature).float().unsqueeze(0)
 ###
@@ -258,7 +265,6 @@ def make_move(model, obs, configuration, EPSILON):
     board = Board(obs, configuration)
     me = board.current_player
     #if we do not have ships but a shipyard build 1 ship
-    print(len(me.ships))
     if len(me.ships)==0 and len(me.shipyards)>0:
         me.shipyards[0].next_action = ShipyardAction.SPAWN
     #Random Spawn, needs improvement
@@ -292,9 +298,11 @@ def make_move(model, obs, configuration, EPSILON):
         actions[ship.position[1], ship.position[0]] = action_index
             
     return me.next_actions, state, actions
+
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
-#print(model)
+print(model)
 memory = ReplayMemory(REPLAY_CAPACITY)
+
 for episode in range(TRAINING_ITERATIONS+1): #+1 so its inclusive and we print a statement at the end
     print(f'{episode} - {round(EPSILON,3)} - {len(memory)}', end='\r')
     _ = env.reset(num_agents=NUM_AGENTS)
@@ -324,11 +332,8 @@ for episode in range(TRAINING_ITERATIONS+1): #+1 so its inclusive and we print a
             if agent_status == 'ACTIVE':
                 player_obs = env.state[0].observation.players[active_id]
                 observation['player'] = active_id
-                print('before action ships')
-                print(len(board.current_player.ships))
                 engine_commands, state, actions = make_move(model, observation, env.configuration, EPSILON)
-                print('after action ships')
-                print(len(board.current_player.ships))
+
                 player2states[active_id].append(state)
                 player2actions[active_id].append(actions)
 
