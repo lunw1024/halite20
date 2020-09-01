@@ -1,7 +1,3 @@
-#=====================#
-# Format for rule based attack bots
-# Uses greedy
-#=====================#
 def get_attack_targets():
     targets = []
     for ship in state['enemyShips']:
