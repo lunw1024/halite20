@@ -1388,7 +1388,6 @@ def target_based_attack():
 @board_agent
 def agent(board):
 
-    print("Turn =",board.step+1)
     # Init
     if board.step == 0:
         init(board)
