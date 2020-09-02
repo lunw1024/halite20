@@ -1370,7 +1370,7 @@ def agent(board):
     # Spawn
     spawn_tasks()
     
-    print(len(state['myShips']))
+    #print(len(state['myShips']))
     '''
     select_swarm_target()
     if state['swarm'] != None:

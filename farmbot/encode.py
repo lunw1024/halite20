@@ -14,10 +14,8 @@ def init(board):  # called once at game starts
 
 # called at the beginning of every turn
 def encode(board):
-    global action
+    global action,state
     action = {}
-
-    global state
     N = state["configuration"].size
     state["currentHalite"] = board.current_player.halite
     state["next"] = np.zeros((board.configuration.size, board.configuration.size))
@@ -95,6 +93,7 @@ def encode(board):
     # Who we should attack
     if len(state["board"].opponents) > 0:
         state["killTarget"] = get_target()
+    state['spawn'] = spawn()
 
 
 # Direct danger areas for ally ship with halite s
