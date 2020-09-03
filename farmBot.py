@@ -15,7 +15,10 @@ import math, random
 import numpy as np
 import scipy.optimize
 import scipy.ndimage
+import scipy.signal
 from queue import PriorityQueue
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 # Global constants
 INF = 999999999999
@@ -42,6 +45,7 @@ weights = temp
 # General calculations whose values are expected to be used in multiple instances
 # Run in update() - see dependency.py
 
+#TODO: Change all convolutions from np.roll to scipy.signal.convolve2d
 
 def init(board):  # called once at game starts
     global state
@@ -49,6 +53,8 @@ def init(board):  # called once at game starts
     state["configuration"] = board.configuration
     state["me"] = board.current_player_id
     state["playerNum"] = len(board.players)
+    encode(board)
+    state['farmMap'] = farm_area_map()
 
 
 # called at the beginning of every turn
@@ -56,6 +62,7 @@ def encode(board):
     global action,state
     action = {}
     N = state["configuration"].size
+    state['N'] = N
     state["currentHalite"] = board.current_player.halite
     state["next"] = np.zeros((board.configuration.size, board.configuration.size))
     state["board"] = board
@@ -241,6 +248,8 @@ def get_immediate_danger(team):
     danger = np.where(res >= 4, 1, 0)
     return danger
 
+def farm_area_map():
+    return scipy.signal.convolve2d(np.where(state['haliteMap']>0,1,0),np.where(np.array(SCHEMA)==1,1,0),mode='same',boundary='wrap')
 def mine(ships):
     global action
     cfg = state['configuration']
@@ -717,32 +726,118 @@ def halite_per_turn(deposit, shipTime, returnTime):
         maximum = perTurn if perTurn > maximum else maximum
     return maximum
 
-# XXX
-SCHEMA = [((-1, 2), (0, 3)), ((1, 3), (2, 2)),
-          ((-1, -3), (0, -3)), ((1, -2), (2, -2)),
-          ((2, 1), (3, 0)), ((3, 1), (-2, -2)),
-          ((-2, 2), (-3, 0)), ((-2, -1), (-3, 1))]
 
+# XXX
+SCHEMA = [
+    [0,0,2,2,0,0,0],
+    [0,2,1,1,2,2,0],
+    [0,2,1,1,1,1,2],
+    [2,1,1,1,1,1,2],
+    [2,1,1,1,1,2,0],
+    [0,2,2,1,1,2,0],
+    [0,0,0,2,2,0,0]
+]
+SCHEMA_SIZE = [7,7]
 
 def wall_schema(): 
     # design wall structure according to shipyard pos
-    # out[i, j] > 0 means (i, j) should be wall, the 
-    # value indicates the pair (to swap non-stop)
-    # TODO: remove connected walls
-    cfg = state["configuration"]
-    board = state["board"]
-    me = board.current_player
-    N = cfg.size
-    out = np.zeros((N, N), dtype=int)
-    for shipyard in me.shipyards:
-        x, y = shipyard.position
-        for i, ((dx1, dy1), (dx2, dy2)) in enumerate(SCHEMA):
-            out[(x + dx1) % N, (y + dy1) % N] = i + 1
-            out[(x + dx2) % N, (y + dy2) % N] = i + 1
-    return out
+
+    if len(state['myShipyards']) == 0:
+        return
+
+    # find best shipyard
+    best = None
+    for shipyard in state['myShipyards']:  
+        if best == None or state['farmMap'][shipyard.position.x][shipyard.position.y] > state['farmMap'][best.position.x][best.position.y]:
+            best = shipyard
+
+    # submit schema into farmMap
+    farmMap = np.zeros((state['N'],state['N']))
+    sPos = best.position
+    for x in range(SCHEMA_SIZE[0]):
+        for y in range(SCHEMA_SIZE[1]):
+            xx = ((sPos.x - SCHEMA_SIZE[0]//2) + x + 21) % 21
+            yy = ((sPos.y - SCHEMA_SIZE[0]//2) + y + 21) % 21
+            farmMap[xx][yy] = SCHEMA[x][y]
+    return farmMap
 
 def farm(ships):
-    pass
+    global action
+    cfg = state['configuration']
+    board = state['board']
+    me = board.current_player
+
+    shipsToAssign = []
+    for ship in ships:
+        if ship in action:
+            continue 
+        for target in get_adjacent(ship.position):
+            if board.cells[target].ship != None:
+                targetShip = board.cells[target].ship
+                if targetShip.player.id != state['me'] and targetShip.halite < ship.halite:
+                    action[ship] = (INF*2+state[ship]['danger'][ship.position.x][ship.position.y], ship, state['closestShipyard'][ship.position.x][ship.position.y])
+        if ship in action:
+            continue # continue its current action
+        shipsToAssign.append(ship)
+    
+
+    # Get Targets
+    targets = [] # (cell, type)
+    for i in board.cells.values():  # Filter targets
+        if i.shipyard != None and i.shipyard.player_id == state['me']:
+            targets.append((i,'guard'))
+            for j in range(min(6,len(state['myShips']))):
+                targets.append((i,'cell'))
+            continue
+        '''if i.halite < 15 and i.ship == None and i.shipyard == None:
+            # Spots not very interesting
+            continue'''
+        if i.ship != None and i.ship.player_id != state['me']:
+            if i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
+                continue
+        targets.append((i,'cell'))
+
+    # Calculate rewards
+    rewards = np.zeros((len(shipsToAssign), len(targets)))
+    for i, ship in enumerate(shipsToAssign):
+        for j, target in enumerate(targets):
+            rewards[i, j] = get_farm_reward(ship, target)          
+
+    # Assign rewards
+    rows, cols = scipy.optimize.linear_sum_assignment(rewards, maximize=True)  # rows[i] -> cols[i]
+    for r, c in zip(rows, cols):
+        task = targets[c]
+        if task[1] == 'cell':
+            cell = cell = targets[c][0]
+            if cell.halite == 0 and cell.shipyard == None and (cell.ship == None or cell.ship.player_id == state['me']):
+                action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
+            else:
+                action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
+        elif task[1] == 'guard':
+            action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
+
+def get_farm_reward(ship,target):
+    
+    cell = target[0]
+    res = 0
+    # Don't be stupid
+    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
+        res = 0
+    elif target[1] == 'cell':
+        # Mining reward
+        if (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
+            res = mine_reward(ship,cell)
+        elif cell.shipyard is None and cell.halite == 0 and (cell.ship is None or cell.ship.player_id == state['me']):
+            res = control_reward(ship,cell)
+        elif cell.ship is not None and cell.ship.player_id != state['me']:
+            res = attack_reward(ship,cell)
+        elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
+            res = return_reward(ship,cell)
+        elif cell.shipyard is not None and cell.shipyard.player_id != state['me']:
+            res = attack_reward(ship,cell)
+    elif target[1] == 'guard':
+        res = guard_reward(ship,cell)
+    return res
 def spawn():
     # Ship value: 
     '''
@@ -1139,7 +1234,8 @@ def agent(board):
     # Init
     if board.step == 0:
         init(board)
-
+    if board.step == 3:
+        plt.imshow(wall_schema(),cmap='hot')
     # Encode
     encode(board)
 
@@ -1151,3 +1247,5 @@ def agent(board):
 
     # Spawn
     spawn_tasks()
+
+    

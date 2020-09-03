@@ -3,6 +3,7 @@
 from dependency import *
 from navigation import *
 
+#TODO: Change all convolutions from np.roll to scipy.signal.convolve2d
 
 def init(board):  # called once at game starts
     global state
@@ -10,6 +11,8 @@ def init(board):  # called once at game starts
     state["configuration"] = board.configuration
     state["me"] = board.current_player_id
     state["playerNum"] = len(board.players)
+    encode(board)
+    state['farmMap'] = farm_area_map()
 
 
 # called at the beginning of every turn
@@ -17,6 +20,7 @@ def encode(board):
     global action,state
     action = {}
     N = state["configuration"].size
+    state['N'] = N
     state["currentHalite"] = board.current_player.halite
     state["next"] = np.zeros((board.configuration.size, board.configuration.size))
     state["board"] = board
@@ -201,3 +205,6 @@ def get_immediate_danger(team):
             res += np.where(N > 0, 1, 0)
     danger = np.where(res >= 4, 1, 0)
     return danger
+
+def farm_area_map():
+    return scipy.signal.convolve2d(np.where(state['haliteMap']>0,1,0),np.where(np.array(SCHEMA)==1,1,0),mode='same',boundary='wrap')

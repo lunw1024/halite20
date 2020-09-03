@@ -8,7 +8,6 @@ def agent(board):
     # Init
     if board.step == 0:
         init(board)
-
     # Encode
     encode(board)
 
@@ -20,3 +19,5 @@ def agent(board):
 
     # Spawn
     spawn_tasks()
+
+    

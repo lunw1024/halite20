@@ -7,7 +7,10 @@ import math, random
 import numpy as np
 import scipy.optimize
 import scipy.ndimage
+import scipy.signal
 from queue import PriorityQueue
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 # Global constants
 INF = 999999999999
