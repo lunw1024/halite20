@@ -98,6 +98,8 @@ def encode(board):
     if len(state["board"].opponents) > 0:
         state["killTarget"] = get_target()
     state['spawn'] = spawn()
+    # Farming 
+    state['farmSchemaMap'] = wall_schema()
 
 
 # Direct danger areas for ally ship with halite s

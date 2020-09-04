@@ -123,6 +123,11 @@ def mine_reward(ship,cell):
     if state['generalDangerMap'][cPos.x][cPos.y] > 1.5 and state['trapped'][state['me']][cPos.x][cPos.y]:
         return 0
 
+    # Try to maintain farms nearby in early game
+    if state['farmSchemaMap'][cPos.x][cPos.y] == 1:
+        if cHalite < 125:
+            return 0
+
     # Halite per turn
     halitePerTurn = 0
 

@@ -18,9 +18,11 @@ def ship_tasks():  # update action
 
     # Select strategy
 
-    if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5:
+    if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and len(state["board"].opponents) > 0:
         end_game()
-    #TODO Add farming decider:
+    elif len(me.ships) > 18 and board.step < 300:
+        #TODO: Improve decider
+        mid_game()
     else:
         early_game()
 
@@ -61,25 +63,15 @@ def early_game():
 
 def mid_game():
     me = state['board'].current_player
-    schema = wall_schema()
-    vacancy = np.sum(schema > 0)
     farmers = state['farmers']
-    miners = state['miners']
-    for ship in me.ships: # hard rules
-        x, y = ship.position
-        if ship.halite > 0:
-            miners.append(ship)
-        elif schema[x, y] > 0: # stay
+    if len(me.ships) > 18:
+        for ship in me.ships:
+            if ship in action:
+                continue
             farmers.append(ship)
-            vacancy -= 1
-    for ship in me.ships: # the rest
-        if ship in miners or ship in farmers:
-            continue
-        if vacancy > 0 and ship.halite == 0: # fill wall vacancy
-            farmers.append(ship)
-            vacancy -= 1
-        else:
-            miners.append(ship) # TODO: currently excessive ship are all miners, consider adding "colonizer"
+
+    else:
+        early_game()
 
 def end_game():
     global action

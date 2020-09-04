@@ -18,7 +18,7 @@ def wall_schema():
     # design wall structure according to shipyard pos
 
     if len(state['myShipyards']) == 0:
-        return
+        return None
 
     # find best shipyard
     best = None
@@ -59,16 +59,25 @@ def farm(ships):
 
     # Get Targets
     targets = [] # (cell, type)
-    farmMap = wall_schema()
+    farmMap = state['farmSchemaMap']
+    if farmMap is None:
+        return
     for i in board.cells.values():  # Filter targets
         pos = i.position
         # Wall
         if farmMap[pos.x][pos.y] >= 2:
             targets.append((i,'wall'))
-        if farmMap[pos.x][pos.y] == 1:
+        elif i.shipyard != None and i.shipyard.player_id == state['me']:
+            for j in range(min(6,len(state['myShips']))):
+                targets.append((i,'cell'))
+        elif farmMap[pos.x][pos.y] == 1 and i.halite > 0:
+            targets.append((i,'cell'))
+        elif i.ship != None and i.ship.player_id != state['me']:
+            targets.append((i,'cell'))
+        elif i.shipyard != None and i.shipyard.player_id != state['me']:
             targets.append((i,'cell'))
     for i in range(len(shipsToAssign)):
-        targets.append(None,'none')
+        targets.append((None,'none'))
 
     # Calculate rewards
     rewards = np.zeros((len(shipsToAssign), len(targets)))
@@ -86,48 +95,90 @@ def farm(ships):
                 action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
             else:
                 action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
-        elif task[1] == 'guard':
-            action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
+        elif task[1] == 'none':
+            action[shipsToAssign[r]] = (0, shipsToAssign[r], Point(0,0))
+        elif task[1] == 'wall':
+            action[shipsToAssign[r]] = (1, shipsToAssign[r], targets[c][0].position)
 
 def get_farm_reward(ship,target):
     
     cell = target[0]
     res = 0
     # Don't be stupid
-    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
+    if target[1] != 'none' and state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
         res = 0
     if target[1] == 'wall':
-        return wall_reward(ship,target)
+        return wall_reward(ship,cell)
     elif target[1] == 'none':
-        return none_reward(ship,target)
+        return none_reward(ship,cell)
     elif target[1] == 'cell':
         if (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
             res = farm_reward(ship,cell)
-        elif cell.shipyard is None and cell.halite == 0 and (cell.ship is None or cell.ship.player_id == state['me']):
-            res = farm_control_reward(ship,cell)
         elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
             res = farm_return_reward(ship,cell)
         elif cell.ship is not None and cell.ship.player_id != state['me']:
+            res = farm_attack_reward(ship,cell)
+        elif cell.shipyard is not None and cell.shipyard.player_id != state['me']:
             res = farm_attack_reward(ship,cell)
         else:
             print("Shouldn't happen")
     
     return res
 
-def wall_reward(ship,target):
-    pass
+def wall_reward(ship,cell):
+    sPos = ship.position
+    cPos = cell.position
 
-def farm_control_reward(ship,target):
-    pass
+    farmMap = state['farmSchemaMap']
 
-def none_reward(ship,target):
+    res = 1000 - dist(sPos,cPos)
+
+    if ship.halite > 0:
+        return 0
+
+    # Encourage swap
+    if sPos == cPos:
+        res = res / 2
+        if cell.halite > 0:
+            res = 0
+    
+    swapTarget = None
+    for pos in get_adjacent(cPos):
+        if farmMap[pos.x][pos.y] == farmMap[cPos.x][cPos.y]:
+            swapTarget = pos
+    
+    if swapTarget == sPos:
+        res *= 100
+    
+    swapTargetCell = state['board'].cells[swapTarget]
+    # Check if in sync with 城管 already at position
+    if sPos != swapTarget and sPos != cPos:
+        # Two allies in place
+        if (state['ally'][cPos.x][cPos.y] and cell.ship.halite == 0) and (state['ally'][swapTarget.x][swapTarget.y] and swapTargetCell.ship.halite==0):
+            return 0
+        # One ally in place
+        if (state['ally'][cPos.x][cPos.y] and cell.ship.halite == 0) or (state['ally'][swapTarget.x][swapTarget.y] and swapTargetCell.ship.halite==0):
+            ally = None
+            if state['ally'][cPos.x][cPos.y] and cell.ship.halite == 0:
+                ally = cell.ship
+            elif state['ally'][swapTarget.x][swapTarget.y] and swapTargetCell.ship.halite==0:
+                ally = swapTargetCell.ship
+            if not(dist(ally.position,cPos) % 2 != dist(sPos,cPos) % 2):
+                return 0
+        # No ships. Do nothing
+
+    return res
+
+def none_reward(ship,cell):
     return 1
 
-def farm_reward(ship,target):
-    pass
+def farm_reward(ship,cell):
+    if cell.halite < min(500,state['board'].step*5) and state['ally'][cell.position.x][cell.position.y]:
+        return 0
+    return mine_reward(ship,cell)
 
-def farm_attack_reward(ship,target):
-    pass
+def farm_attack_reward(ship,cell):
+    return attack_reward(ship,cell)
 
-def farm_return_reward(ship,target):
-    pass
+def farm_return_reward(ship,cell):
+    return ship.halite

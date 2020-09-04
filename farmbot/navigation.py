@@ -109,7 +109,7 @@ def d_move(s : Ship, t : Point, inBlocked):
         tot = 0
         
         for pos in get_adjacent(sPos):
-            if state['allyShipyard'][pos.x][pos.y]:
+            if state['allyShipyard'][pos.x][pos.y] or (state['ally'][pos.x][pos.y] and state['board'].cells[pos].ship.halite == 0):
                 continue
             if blocked[pos.x][pos.y] > 0:
                 tot += 1

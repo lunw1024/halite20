@@ -140,6 +140,8 @@ def encode(board):
     if len(state["board"].opponents) > 0:
         state["killTarget"] = get_target()
     state['spawn'] = spawn()
+    # Farming 
+    state['farmSchemaMap'] = wall_schema()
 
 
 # Direct danger areas for ally ship with halite s
@@ -375,6 +377,11 @@ def mine_reward(ship,cell):
     if state['generalDangerMap'][cPos.x][cPos.y] > 1.5 and state['trapped'][state['me']][cPos.x][cPos.y]:
         return 0
 
+    # Try to maintain farms nearby in early game
+    if state['farmSchemaMap'][cPos.x][cPos.y] == 1:
+        if cHalite < 125:
+            return 0
+
     # Halite per turn
     halitePerTurn = 0
 
@@ -588,9 +595,11 @@ def ship_tasks():  # update action
 
     # Select strategy
 
-    if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5:
+    if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and len(state["board"].opponents) > 0:
         end_game()
-    #TODO Add farming decider:
+    elif len(me.ships) > 18 and board.step < 300:
+        #TODO: Improve decider
+        mid_game()
     else:
         early_game()
 
@@ -631,25 +640,15 @@ def early_game():
 
 def mid_game():
     me = state['board'].current_player
-    schema = wall_schema()
-    vacancy = np.sum(schema > 0)
     farmers = state['farmers']
-    miners = state['miners']
-    for ship in me.ships: # hard rules
-        x, y = ship.position
-        if ship.halite > 0:
-            miners.append(ship)
-        elif schema[x, y] > 0: # stay
+    if len(me.ships) > 18:
+        for ship in me.ships:
+            if ship in action:
+                continue
             farmers.append(ship)
-            vacancy -= 1
-    for ship in me.ships: # the rest
-        if ship in miners or ship in farmers:
-            continue
-        if vacancy > 0 and ship.halite == 0: # fill wall vacancy
-            farmers.append(ship)
-            vacancy -= 1
-        else:
-            miners.append(ship) # TODO: currently excessive ship are all miners, consider adding "colonizer"
+
+    else:
+        early_game()
 
 def end_game():
     global action
@@ -729,13 +728,13 @@ def halite_per_turn(deposit, shipTime, returnTime):
 
 # XXX
 SCHEMA = [
-    [0,0,2,2,0,0,0],
+    [0,0,3,3,0,0,0],
     [0,2,1,1,2,2,0],
-    [0,2,1,1,1,1,2],
-    [2,1,1,1,1,1,2],
-    [2,1,1,1,1,2,0],
+    [0,2,1,1,1,1,3],
+    [3,1,1,1,1,1,3],
+    [3,1,1,1,1,2,0],
     [0,2,2,1,1,2,0],
-    [0,0,0,2,2,0,0]
+    [0,0,0,3,3,0,0]
 ]
 SCHEMA_SIZE = [7,7]
 
@@ -743,7 +742,7 @@ def wall_schema():
     # design wall structure according to shipyard pos
 
     if len(state['myShipyards']) == 0:
-        return
+        return None
 
     # find best shipyard
     best = None
@@ -767,6 +766,7 @@ def farm(ships):
     board = state['board']
     me = board.current_player
 
+    # Run when under attack
     shipsToAssign = []
     for ship in ships:
         if ship in action:
@@ -783,19 +783,25 @@ def farm(ships):
 
     # Get Targets
     targets = [] # (cell, type)
+    farmMap = state['farmSchemaMap']
+    if farmMap is None:
+        return
     for i in board.cells.values():  # Filter targets
-        if i.shipyard != None and i.shipyard.player_id == state['me']:
-            targets.append((i,'guard'))
+        pos = i.position
+        # Wall
+        if farmMap[pos.x][pos.y] >= 2:
+            targets.append((i,'wall'))
+        elif i.shipyard != None and i.shipyard.player_id == state['me']:
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
-            continue
-        '''if i.halite < 15 and i.ship == None and i.shipyard == None:
-            # Spots not very interesting
-            continue'''
-        if i.ship != None and i.ship.player_id != state['me']:
-            if i.ship.halite == 0 and state['controlMap'][i.position.x][i.position.y] < 0:
-                continue
-        targets.append((i,'cell'))
+        elif farmMap[pos.x][pos.y] == 1 and i.halite > 0:
+            targets.append((i,'cell'))
+        elif i.ship != None and i.ship.player_id != state['me']:
+            targets.append((i,'cell'))
+        elif i.shipyard != None and i.shipyard.player_id != state['me']:
+            targets.append((i,'cell'))
+    for i in range(len(shipsToAssign)):
+        targets.append((None,'none'))
 
     # Calculate rewards
     rewards = np.zeros((len(shipsToAssign), len(targets)))
@@ -813,31 +819,93 @@ def farm(ships):
                 action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
             else:
                 action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
-        elif task[1] == 'guard':
-            action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
+        elif task[1] == 'none':
+            action[shipsToAssign[r]] = (0, shipsToAssign[r], Point(0,0))
+        elif task[1] == 'wall':
+            action[shipsToAssign[r]] = (1, shipsToAssign[r], targets[c][0].position)
 
 def get_farm_reward(ship,target):
     
     cell = target[0]
     res = 0
     # Don't be stupid
-    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
+    if target[1] != 'none' and state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
         res = 0
+    if target[1] == 'wall':
+        return wall_reward(ship,cell)
+    elif target[1] == 'none':
+        return none_reward(ship,cell)
     elif target[1] == 'cell':
-        # Mining reward
         if (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
-            res = mine_reward(ship,cell)
-        elif cell.shipyard is None and cell.halite == 0 and (cell.ship is None or cell.ship.player_id == state['me']):
-            res = control_reward(ship,cell)
-        elif cell.ship is not None and cell.ship.player_id != state['me']:
-            res = attack_reward(ship,cell)
+            res = farm_reward(ship,cell)
         elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
-            res = return_reward(ship,cell)
+            res = farm_return_reward(ship,cell)
+        elif cell.ship is not None and cell.ship.player_id != state['me']:
+            res = farm_attack_reward(ship,cell)
         elif cell.shipyard is not None and cell.shipyard.player_id != state['me']:
-            res = attack_reward(ship,cell)
-    elif target[1] == 'guard':
-        res = guard_reward(ship,cell)
+            res = farm_attack_reward(ship,cell)
+        else:
+            print("Shouldn't happen")
+    
     return res
+
+def wall_reward(ship,cell):
+    sPos = ship.position
+    cPos = cell.position
+
+    farmMap = state['farmSchemaMap']
+
+    res = 1000 - dist(sPos,cPos)
+
+    if ship.halite > 0:
+        return 0
+
+    # Encourage swap
+    if sPos == cPos:
+        res = res / 2
+        if cell.halite > 0:
+            res = 0
+    
+    swapTarget = None
+    for pos in get_adjacent(cPos):
+        if farmMap[pos.x][pos.y] == farmMap[cPos.x][cPos.y]:
+            swapTarget = pos
+    
+    if swapTarget == sPos:
+        res *= 100
+    
+    swapTargetCell = state['board'].cells[swapTarget]
+    # Check if in sync with 城管 already at position
+    if sPos != swapTarget and sPos != cPos:
+        # Two allies in place
+        if (state['ally'][cPos.x][cPos.y] and cell.ship.halite == 0) and (state['ally'][swapTarget.x][swapTarget.y] and swapTargetCell.ship.halite==0):
+            return 0
+        # One ally in place
+        if (state['ally'][cPos.x][cPos.y] and cell.ship.halite == 0) or (state['ally'][swapTarget.x][swapTarget.y] and swapTargetCell.ship.halite==0):
+            ally = None
+            if state['ally'][cPos.x][cPos.y] and cell.ship.halite == 0:
+                ally = cell.ship
+            elif state['ally'][swapTarget.x][swapTarget.y] and swapTargetCell.ship.halite==0:
+                ally = swapTargetCell.ship
+            if not(dist(ally.position,cPos) % 2 != dist(sPos,cPos) % 2):
+                return 0
+        # No ships. Do nothing
+
+    return res
+
+def none_reward(ship,cell):
+    return 1
+
+def farm_reward(ship,cell):
+    if cell.halite < min(500,state['board'].step*5) and state['ally'][cell.position.x][cell.position.y]:
+        return 0
+    return mine_reward(ship,cell)
+
+def farm_attack_reward(ship,cell):
+    return attack_reward(ship,cell)
+
+def farm_return_reward(ship,cell):
+    return ship.halite
 def spawn():
     # Ship value: 
     '''
@@ -1032,7 +1100,7 @@ def d_move(s : Ship, t : Point, inBlocked):
         tot = 0
         
         for pos in get_adjacent(sPos):
-            if state['allyShipyard'][pos.x][pos.y]:
+            if state['allyShipyard'][pos.x][pos.y] or (state['ally'][pos.x][pos.y] and state['board'].cells[pos].ship.halite == 0):
                 continue
             if blocked[pos.x][pos.y] > 0:
                 tot += 1
@@ -1224,6 +1292,92 @@ def predict(s : Ship):
 
 
 
+def get_attack_targets():
+    targets = []
+    for ship in state['enemyShips']:
+        if ship.halite != 0:
+            targets.append(ship)
+    return targets
+
+def attack(ships):
+    global action
+
+    # Select potential targets
+    targets = get_attack_targets()
+    # Greedy selection
+    target_list = []
+    for ship in ships:
+        # Force return
+        if ship.halite > 0:
+            action[ship] = (INF, ship, state['closestShipyard'][ship.position.x][ship.position.y])
+            continue
+        # Attack
+        finalTarget = targets[0]
+        v = rule_attack_reward(ship,finalTarget,target_list)
+        for target in targets:
+            tv = rule_attack_reward(ship,target,target_list)
+            if tv > v:
+                v = tv
+                finalTarget = target
+        target_list.append(finalTarget)
+        action[ship] = (1/dist(finalTarget.position,ship.position), ship, finalTarget.position)
+
+# Greedy selection 
+# TODO: Improve this!
+def rule_attack_reward(s,t,target_list):
+    tPos = t.position 
+    sPos = s.position
+    d = dist(tPos,sPos)
+    res = 1/d
+    if t.player == state['killTarget']:
+        res = res * 4
+
+    control = state['positiveControlMap'][tPos.x][tPos.y]
+    if control > 1 and d < 8:
+        # Check if local maxima
+        yes = True
+        for x in range(-3,4):
+            if not yes:
+                break
+            for y in range(-3,4):
+                xx = (tPos.x+x) % 21
+                yy = (tPos.y+y) % 21
+                if not yes:
+                    break
+                if state['positiveControlMap'][xx][yy] > control and state['enemyShipHalite'][xx][yy] < 99999 and state['enemyShipHalite'][xx][yy] > 0:
+                    yes = False
+        if yes:
+            res = res * 6
+    
+    if state['trapped'][t.player_id][tPos.x][tPos.y] and d <= 6:
+        res = res * 10
+
+    '''
+    for pos in get_adjacent(tPos):
+        if state['enemyShipHalite'][pos.x][pos.y] <= s.halite:
+            return 0
+    '''
+
+    return res
+
+
+###################
+# target based attack system
+###################
+
+'''
+def target_based_attack():
+    # actions[ship] = (priority: int, ship: Ship, target: Point)
+    params = weights[7] # <- np.array
+    # target selection
+    targets = "all enemy ships with cargo > 0"
+    sorted(targets, key="cargo")
+
+    # assignment
+    for target in targets:
+        actions["all ally ships with cargo < target.cargo" in area5x5(target)] = ("priority", "ship", "target.pos")
+'''
+
 # The final function
 
 
@@ -1234,8 +1388,6 @@ def agent(board):
     # Init
     if board.step == 0:
         init(board)
-    if board.step == 3:
-        plt.imshow(wall_schema(),cmap='hot')
     # Encode
     encode(board)
 
