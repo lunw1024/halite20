@@ -124,7 +124,7 @@ def mine_reward(ship,cell):
         return 0
 
     # Try to maintain farms nearby in early game
-    if state['farmSchemaMap'][cPos.x][cPos.y] == 1:
+    if not state['farmSchemaMap'] is None and state['farmSchemaMap'][cPos.x][cPos.y] == 1:
         if cHalite < 125:
             return 0
 

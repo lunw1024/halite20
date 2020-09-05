@@ -20,7 +20,7 @@ def ship_tasks():  # update action
 
     if board.step > state['configuration']['episodeSteps'] - cfg.size * 1.5 and len(state["board"].opponents) > 0:
         end_game()
-    elif len(me.ships) > 18 and board.step < 300:
+    elif len(me.ships) > 13 and board.step < 300 and board.step > 80 and not state['farmSchemaMap'] is None:
         #TODO: Improve decider
         mid_game()
     else:
@@ -64,7 +64,9 @@ def early_game():
 def mid_game():
     me = state['board'].current_player
     farmers = state['farmers']
-    if len(me.ships) > 18:
+    early_game()
+    
+    if len(me.ships) > 13:
         for ship in me.ships:
             if ship in action:
                 continue

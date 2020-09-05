@@ -2,7 +2,9 @@ from encode import *
 from agent import *
 from dependency import *
 
-# XXX
+
+# Dense Lattice 1
+'''
 SCHEMA = [
     [0,0,3,3,0,0,0],
     [0,2,1,1,2,2,0],
@@ -13,6 +15,22 @@ SCHEMA = [
     [0,0,0,3,3,0,0]
 ]
 SCHEMA_SIZE = [7,7]
+'''
+
+# Sparse Lattice 1
+
+SCHEMA = [
+    [0,0,0,0,0,0,0,0,0],
+    [0,0,0,2,2,0,0,0,0],
+    [2,1,1,1,1,1,1,2,0],
+    [2,1,1,1,1,1,1,2,0],
+    [0,1,1,1,1,1,1,0,0],
+    [0,1,1,1,1,1,1,0,0],
+    [2,1,1,1,1,1,1,2,0],
+    [2,1,1,1,1,1,1,2,0],
+    [0,0,0,2,2,0,0,0,0]
+]
+SCHEMA_SIZE = [9,9]
 
 def wall_schema(): 
     # design wall structure according to shipyard pos
@@ -68,16 +86,15 @@ def farm(ships):
         if farmMap[pos.x][pos.y] >= 2:
             targets.append((i,'wall'))
         elif i.shipyard != None and i.shipyard.player_id == state['me']:
+            targets.append((i,'guard'))
             for j in range(min(6,len(state['myShips']))):
                 targets.append((i,'cell'))
-        elif farmMap[pos.x][pos.y] == 1 and i.halite > 0:
+        elif i.halite > 0 and (i.ship is None or i.ship.player_id == state['me']):
             targets.append((i,'cell'))
-        elif i.ship != None and i.ship.player_id != state['me']:
+        elif i.ship != None and i.ship.player_id != state['me'] and farmMap[pos.x][pos.y] == 1:
             targets.append((i,'cell'))
-        elif i.shipyard != None and i.shipyard.player_id != state['me']:
+        elif i.shipyard != None and i.shipyard.player_id != state['me'] and farmMap[pos.x][pos.y] == 1:
             targets.append((i,'cell'))
-    for i in range(len(shipsToAssign)):
-        targets.append((None,'none'))
 
     # Calculate rewards
     rewards = np.zeros((len(shipsToAssign), len(targets)))
@@ -95,25 +112,28 @@ def farm(ships):
                 action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
             else:
                 action[shipsToAssign[r]] = (rewards[r][c], shipsToAssign[r], targets[c][0].position)
-        elif task[1] == 'none':
-            action[shipsToAssign[r]] = (0, shipsToAssign[r], Point(0,0))
         elif task[1] == 'wall':
             action[shipsToAssign[r]] = (1, shipsToAssign[r], targets[c][0].position)
+        elif task[1] == 'guard':
+            action[shipsToAssign[r]] = (0, shipsToAssign[r], targets[c][0].position)
 
 def get_farm_reward(ship,target):
     
     cell = target[0]
     res = 0
     # Don't be stupid
-    if target[1] != 'none' and state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
+    if state[ship]['blocked'][cell.position.x][cell.position.y] and cell.shipyard == None:
         res = 0
     if target[1] == 'wall':
         return wall_reward(ship,cell)
-    elif target[1] == 'none':
-        return none_reward(ship,cell)
+    elif target[1] == 'guard':
+        return guard_reward(ship,cell)
     elif target[1] == 'cell':
         if (cell.ship is None or cell.ship.player_id == state['me']) and cell.halite > 0:
-            res = farm_reward(ship,cell)
+            if state['farmSchemaMap'][cell.position.x][cell.position.y] == 1:
+                res = farm_reward(ship,cell)
+            else:
+                res = mine_reward(ship,cell)
         elif cell.shipyard is not None and cell.shipyard.player_id == state['me']:
             res = farm_return_reward(ship,cell)
         elif cell.ship is not None and cell.ship.player_id != state['me']:
@@ -169,16 +189,27 @@ def wall_reward(ship,cell):
 
     return res
 
-def none_reward(ship,cell):
-    return 1
-
 def farm_reward(ship,cell):
-    if cell.halite < min(500,state['board'].step*5) and state['ally'][cell.position.x][cell.position.y]:
+    # and state['ally'][cell.position.x][cell.position.y]
+    if cell.halite < min(500,state['board'].step*2):
         return 0
     return mine_reward(ship,cell)
 
 def farm_attack_reward(ship,cell):
-    return attack_reward(ship,cell)
+    sPos = ship.position
+    cPos = cell.position
+    res = 0
+    if cell.ship != None:
+        if cell.ship.halite > ship.halite:
+            res = 200 - dist(sPos,cPos)
+        elif cell.ship.halite == ship.halite:
+            res = attack_reward(ship,cell)
+    elif cell.shipyard != None:
+        res = 200 - dist(sPos,cPos)
+
+    if ship.halite > 0:
+        res = res / 2
+    return res
 
 def farm_return_reward(ship,cell):
     return ship.halite
